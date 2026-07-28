@@ -19,94 +19,69 @@ export class Action {
         /* Identificación */
 
         this.id = data.id ?? crypto.randomUUID();
-
         this.created = data.created ?? Date.now();
 
         /* Localización */
 
         this.side = data.side ?? "right";
-
         this.hand = data.hand ?? this.side;
-
         this.finger = data.finger ?? null;
 
         /* Vídeo */
 
         this.frame = data.frame ?? 0;
-
         this.time = data.time ?? 0;
-
         this.duration = data.duration ?? 0;
 
         this.cycle = data.cycle ?? 1;
-
         this.phase = data.phase ?? "";
 
         /* Acción */
 
         this.type = data.type ?? "technical";
-
         this.classification = data.classification ?? "";
-
         this.description = data.description ?? "";
 
         /* Factores OCRA */
 
         this.force = data.force ?? 0;
-
         this.posture = data.posture ?? 0;
-
         this.recovery = data.recovery ?? 0;
-
         this.frequency = data.frequency ?? 0;
-
         this.riskFactor = data.riskFactor ?? 0;
 
-        /* Ángulos */
+        /* Ángulos articulares */
 
         this.shoulder = {
-
             right: data.shoulder?.right ?? null,
-
             left: data.shoulder?.left ?? null
-
         };
 
         this.elbow = {
-
             right: data.elbow?.right ?? null,
-
             left: data.elbow?.left ?? null
-
         };
 
         this.wrist = {
-
             right: data.wrist?.right ?? null,
-
             left: data.wrist?.left ?? null
-
         };
 
         this.trunk = data.trunk ?? null;
-
         this.neck = data.neck ?? null;
 
-        /* IA */
+        /* Información IA */
 
         this.ai = {
 
             detected: data.ai?.detected ?? false,
-
             confidence: data.ai?.confidence ?? 0,
-
             model: data.ai?.model ?? "",
-
             validated: data.ai?.validated ?? false
 
         };
 
-        /* Usuario */
+        /* Observaciones */
 
         this.notes = data.notes ?? "";
 
@@ -120,21 +95,14 @@ export class Action {
 
 export class Session {
 
-    constructor() {
+    constructor(data = {}) {
 
-        this.analyst = "";
-
-        this.company = "";
-
-        this.workstation = "";
-
-        this.task = "";
-
-        this.worker = "";
-
-        this.date = new Date();
-
-        this.comments = "";
+        this.analyst = data.analyst ?? "";
+        this.company = data.company ?? "";
+        this.workstation = data.workstation ?? "";
+        this.task = data.task ?? "";
+        this.date = data.date ?? new Date().toISOString();
+        this.comments = data.comments ?? "";
 
     }
 
@@ -146,47 +114,14 @@ export class Session {
 
 export class VideoInfo {
 
-    constructor() {
+    constructor(data = {}) {
 
-        this.name = "";
-
-        this.duration = 0;
-
-        this.fps = 25;
-
-        this.width = 0;
-
-        this.height = 0;
-
-        this.currentFrame = 0;
-
-        this.currentTime = 0;
-
-    }
-
-}
-
-/* ==========================================================
-   ANALYSIS
-========================================================== */
-
-export class Analysis {
-
-    constructor() {
-
-        this.actions = [];
-
-        this.ocraIndex = 0;
-
-        this.ocraClass = "";
-
-        this.frequency = 0;
-
-        this.force = 0;
-
-        this.posture = 0;
-
-        this.recovery = 0;
+        this.name = data.name ?? "";
+        this.file = data.file ?? "";
+        this.duration = data.duration ?? 0;
+        this.fps = data.fps ?? 25;
+        this.width = data.width ?? 0;
+        this.height = data.height ?? 0;
 
     }
 
@@ -200,15 +135,37 @@ export class Project {
 
     constructor() {
 
-        this.version = "5.0";
+        this.version = "5.0.0";
 
-        this.created = new Date();
+        this.created = new Date().toISOString();
 
         this.session = new Session();
 
         this.video = new VideoInfo();
 
-        this.analysis = new Analysis();
+        this.actions = [];
+
+        this.results = {
+
+            totalActions: 0,
+
+            rightActions: 0,
+
+            leftActions: 0,
+
+            frequencyFactor: 0,
+
+            forceFactor: 0,
+
+            postureFactor: 0,
+
+            recoveryFactor: 0,
+
+            ocraIndex: 0,
+
+            ocraClass: ""
+
+        };
 
     }
 
