@@ -5,12 +5,13 @@ Main pipeline for OCRA Video Analyzer.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator, Dict, Optional, Tuple
+from typing import Iterator, Dict, Optional
 
 from ocra.video.video_loader import VideoLoader
 from ocra.pose_detection.pose_estimator import PoseEstimator
 from ocra.models.pose_frame import PoseFrame
 from ocra.kinematics import JointAngleCalculator
+from ocra.output import FrameResult
 
 
 class OcraPipeline:
@@ -24,10 +25,9 @@ class OcraPipeline:
     def analyze(
         self,
         video_path: str | Path,
-    ) -> Iterator[Optional[Tuple[PoseFrame, Dict[str, Optional[float]]]]]:
+    ) -> Iterator[Optional[FrameResult]]:
         """
-        Analyze a video and yield detected PoseFrame for each frame along with
-        a small set of computed joint angles (if a pose was detected).
+        Analyze a video and yield a FrameResult for each frame.
 
         Parameters
         ----------
@@ -36,10 +36,10 @@ class OcraPipeline:
 
         Yields
         ------
-        Optional[Tuple[PoseFrame, Dict[str, Optional[float]]]]
-            For each frame, yields a tuple (PoseFrame, angles) where angles is a
-            mapping from joint name to angle in degrees, or yields None if no
-            pose was detected for that frame.
+        Optional[FrameResult]
+            For each frame, yields a FrameResult containing the detected
+            PoseFrame (or None) and a mapping of computed joint angles, or
+            yields None if no pose was detected for that frame.
         """
 
         loader = VideoLoader(video_path)
@@ -52,7 +52,8 @@ class OcraPipeline:
                 )
 
                 if pose is None:
-                    yield None
+                    # Yield a FrameResult with no pose to keep the stream stable
+                    yield FrameResult(frame_index=frame_index, timestamp=timestamp, pose=None, angles={})
                     continue
 
                 # Example joint angle calculations (MediaPipe landmark indices):
@@ -85,7 +86,7 @@ class OcraPipeline:
                     pose, wrist_idx=16, elbow_idx=14, index_idx=18
                 )
 
-                yield pose, angles
+                yield FrameResult(frame_index=frame_index, timestamp=timestamp, pose=pose, angles=angles)
         finally:
             loader.release()
 

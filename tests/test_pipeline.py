@@ -4,6 +4,7 @@ import numpy as np
 from ocra.pipeline import OcraPipeline
 from ocra.models.landmark import Landmark
 from ocra.models.pose_frame import PoseFrame
+from ocra.output.frame_result import FrameResult
 
 
 class FakeLoader:
@@ -74,28 +75,28 @@ def test_pipeline_computes_elbow_angles(monkeypatch):
     item = results[0]
     assert item is not None
 
-    pose_frame, angles = item
+    assert isinstance(item, FrameResult)
 
-    assert pose_frame.frame_index == 0
+    assert item.frame_index == 0
     # Angles for both elbows should be approximately 90 degrees
-    assert angles.get("left_elbow") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["left_elbow"]
+    assert item.angles.get("left_elbow") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["left_elbow"]
 
-    assert angles.get("right_elbow") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["right_elbow"]
+    assert item.angles.get("right_elbow") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["right_elbow"]
 
     # Shoulders should be approximately 90 degrees (elbow - shoulder - hip)
-    assert angles.get("left_shoulder") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["left_shoulder"]
+    assert item.angles.get("left_shoulder") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["left_shoulder"]
 
-    assert angles.get("right_shoulder") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["right_shoulder"]
+    assert item.angles.get("right_shoulder") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["right_shoulder"]
 
     # Wrists should be approximately 90 degrees (elbow - wrist - index)
-    assert angles.get("left_wrist") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["left_wrist"]
+    assert item.angles.get("left_wrist") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["left_wrist"]
 
-    assert angles.get("right_wrist") is not None
-    assert pytest.approx(90.0, rel=1e-3) == angles["right_wrist"]
+    assert item.angles.get("right_wrist") is not None
+    assert pytest.approx(90.0, rel=1e-3) == item.angles["right_wrist"]
 
     pipeline.close()
