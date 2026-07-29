@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Iterator, List, Optional
 
 from ocra.video.video_loader import VideoLoader
-from ocra.pose_detection.pose_estimator import PoseEstimator, Landmark
+from ocra.pose_detection.pose_estimator import PoseEstimator
+from ocra.models.pose_frame import PoseFrame
 
 
 class OcraPipeline:
@@ -22,9 +23,9 @@ class OcraPipeline:
     def analyze(
         self,
         video_path: str | Path,
-    ) -> Iterator[Optional[List[Landmark]]]:
+    ) -> Iterator[Optional[PoseFrame]]:
         """
-        Analyze a video and yield detected landmarks for each frame.
+        Analyze a video and yield detected PoseFrame for each frame.
 
         Parameters
         ----------
@@ -33,15 +34,18 @@ class OcraPipeline:
 
         Yields
         ------
-        Optional[List[Landmark]]
-            Landmarks detected in each frame, or None if no pose is detected.
+        Optional[PoseFrame]
+            PoseFrame for each frame, or None if no pose is detected.
         """
 
         loader = VideoLoader(video_path)
 
         try:
-            for frame in loader.frames():
-                yield self.pose_estimator.estimate(frame)
+            for frame_index, frame in enumerate(loader.frames()):
+                timestamp = frame_index / loader.fps if loader.fps else 0.0
+                yield self.pose_estimator.estimate(
+                    frame, frame_index=frame_index, timestamp=timestamp
+                )
         finally:
             loader.release()
 

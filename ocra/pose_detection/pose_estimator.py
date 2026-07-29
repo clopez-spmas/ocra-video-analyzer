@@ -4,21 +4,14 @@ Pose estimation module using MediaPipe.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List, Optional
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-
-@dataclass
-class Landmark:
-    id: int
-    x: float
-    y: float
-    z: float
-    visibility: float
+from ocra.models.landmark import Landmark
+from ocra.models.pose_frame import PoseFrame
 
 
 class PoseEstimator:
@@ -43,9 +36,14 @@ class PoseEstimator:
             min_tracking_confidence=min_tracking_confidence,
         )
 
-    def estimate(self, frame: np.ndarray) -> Optional[List[Landmark]]:
+    def estimate(
+        self,
+        frame: np.ndarray,
+        frame_index: int,
+        timestamp: float,
+    ) -> PoseFrame | None:
         """
-        Estimate body landmarks from a frame.
+        Estimate body landmarks from a frame and return a PoseFrame.
         """
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -55,21 +53,18 @@ class PoseEstimator:
         if result.pose_landmarks is None:
             return None
 
-        landmarks = []
+        landmarks: dict[int, Landmark] = {}
 
         for idx, lm in enumerate(result.pose_landmarks.landmark):
-
-            landmarks.append(
-                Landmark(
-                    id=idx,
-                    x=lm.x,
-                    y=lm.y,
-                    z=lm.z,
-                    visibility=lm.visibility,
-                )
+            landmarks[idx] = Landmark(
+                id=idx,
+                x=lm.x,
+                y=lm.y,
+                z=lm.z,
+                visibility=lm.visibility,
             )
 
-        return landmarks
+        return PoseFrame(frame_index=frame_index, timestamp=timestamp, landmarks=landmarks)
 
     def close(self):
         self.pose.close()
