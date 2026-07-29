@@ -74,3 +74,27 @@ class JointAngleCalculator:
             lb,
             lc,
         )
+
+    @staticmethod
+    def shoulder_from_pose(
+        pose: PoseFrame,
+        shoulder_idx: int,
+        elbow_idx: int,
+        hip_idx: int,
+    ) -> Optional[float]:
+        """
+        Convenience method to compute the shoulder angle (elbow - shoulder - hip).
+        """
+        return JointAngleCalculator.from_pose(pose, elbow_idx, shoulder_idx, hip_idx)
+
+    @staticmethod
+    def wrist_from_pose(
+        pose: PoseFrame,
+        wrist_idx: int,
+        elbow_idx: int,
+        index_idx: int,
+    ) -> Optional[float]:
+        """
+        Convenience method to compute the wrist angle (elbow - wrist - index).
+        """
+        return JointAngleCalculator.from_pose(pose, elbow_idx, wrist_idx, index_idx)

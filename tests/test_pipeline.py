@@ -21,7 +21,7 @@ class FakeLoader:
 
 class FakeEstimator:
     def estimate(self, frame, frame_index, timestamp):
-        # Build landmarks that produce ~90 degree at the elbow for both sides
+        # Build landmarks that produce ~90 degree at the elbow, shoulder and wrist for both sides
         # left: shoulder(11) - elbow(13) - wrist(15)
         # right: shoulder(12) - elbow(14) - wrist(16)
         a_left = Landmark(id=11, x=0.0, y=1.0, z=0.0, visibility=1.0)   # shoulder
@@ -32,6 +32,14 @@ class FakeEstimator:
         b_right = Landmark(id=14, x=0.0, y=0.0, z=0.0, visibility=1.0)  # elbow
         c_right = Landmark(id=16, x=1.0, y=0.0, z=0.0, visibility=1.0)  # wrist
 
+        # Add hips so shoulder angle (elbow - shoulder - hip) is ~90 degrees
+        left_hip = Landmark(id=23, x=1.0, y=1.0, z=0.0, visibility=1.0)
+        right_hip = Landmark(id=24, x=1.0, y=1.0, z=0.0, visibility=1.0)
+
+        # Add index finger landmarks so wrist angle (elbow - wrist - index) is ~90 degrees
+        left_index = Landmark(id=17, x=2.0, y=1.0, z=0.0, visibility=1.0)
+        right_index = Landmark(id=18, x=2.0, y=1.0, z=0.0, visibility=1.0)
+
         landmarks = {
             11: a_left,
             13: b_left,
@@ -39,6 +47,10 @@ class FakeEstimator:
             12: a_right,
             14: b_right,
             16: c_right,
+            23: left_hip,
+            24: right_hip,
+            17: left_index,
+            18: right_index,
         }
 
         return PoseFrame(frame_index=frame_index, timestamp=timestamp, landmarks=landmarks)
@@ -71,5 +83,19 @@ def test_pipeline_computes_elbow_angles(monkeypatch):
 
     assert angles.get("right_elbow") is not None
     assert pytest.approx(90.0, rel=1e-3) == angles["right_elbow"]
+
+    # Shoulders should be approximately 90 degrees (elbow - shoulder - hip)
+    assert angles.get("left_shoulder") is not None
+    assert pytest.approx(90.0, rel=1e-3) == angles["left_shoulder"]
+
+    assert angles.get("right_shoulder") is not None
+    assert pytest.approx(90.0, rel=1e-3) == angles["right_shoulder"]
+
+    # Wrists should be approximately 90 degrees (elbow - wrist - index)
+    assert angles.get("left_wrist") is not None
+    assert pytest.approx(90.0, rel=1e-3) == angles["left_wrist"]
+
+    assert angles.get("right_wrist") is not None
+    assert pytest.approx(90.0, rel=1e-3) == angles["right_wrist"]
 
     pipeline.close()

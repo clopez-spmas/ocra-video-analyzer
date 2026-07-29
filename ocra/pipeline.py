@@ -58,6 +58,10 @@ class OcraPipeline:
                 # Example joint angle calculations (MediaPipe landmark indices):
                 # left_elbow: shoulder(11) - elbow(13) - wrist(15)
                 # right_elbow: shoulder(12) - elbow(14) - wrist(16)
+                # left_shoulder: elbow(13) - shoulder(11) - hip(23)
+                # right_shoulder: elbow(14) - shoulder(12) - hip(24)
+                # left_wrist: elbow(13) - wrist(15) - index(17)
+                # right_wrist: elbow(14) - wrist(16) - index(18)
                 angles: Dict[str, Optional[float]] = {}
 
                 angles["left_elbow"] = JointAngleCalculator.from_pose(
@@ -65,6 +69,20 @@ class OcraPipeline:
                 )
                 angles["right_elbow"] = JointAngleCalculator.from_pose(
                     pose, 12, 14, 16
+                )
+
+                angles["left_shoulder"] = JointAngleCalculator.shoulder_from_pose(
+                    pose, shoulder_idx=11, elbow_idx=13, hip_idx=23
+                )
+                angles["right_shoulder"] = JointAngleCalculator.shoulder_from_pose(
+                    pose, shoulder_idx=12, elbow_idx=14, hip_idx=24
+                )
+
+                angles["left_wrist"] = JointAngleCalculator.wrist_from_pose(
+                    pose, wrist_idx=15, elbow_idx=13, index_idx=17
+                )
+                angles["right_wrist"] = JointAngleCalculator.wrist_from_pose(
+                    pose, wrist_idx=16, elbow_idx=14, index_idx=18
                 )
 
                 yield pose, angles
