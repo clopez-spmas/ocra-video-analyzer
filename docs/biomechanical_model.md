@@ -165,13 +165,16 @@ Pendiente de definición:
 
 10. Tratamiento de datos perdidos e interpolación
 -------------------------------------------------
-Política general:
-- Se considerarán muestras válidas únicamente aquellas con confianza/score de detección por encima de un umbral mínimo (umbral técnico) — PENDIENTE DE DEFINICIÓN.
-- Para huecos de datos pequeños (gap), se aplicará interpolación lineal en las coordenadas 2D/3D de landmarks hasta una duración máxima de hueco (gap_max_seconds). Si el hueco supera gap_max_seconds, ese intervalo se marcará como no válido para la extracción de métricas y las métricas temporales (porcentaje de tiempo, duración continua) se calcularán sobre el tiempo efectivo válido.
-- Pendiente de definición: el valor de gap_max_seconds, la estrategia exacta de interpolación (lineal vs. spline) y si se realizará interpolación condicional (p. ej. solo si la velocidad implícita entre puntos vecinos es razonable).
+Regla primaria (decisión de proyecto):
+- Queda expresamente prohibida cualquier interpolación automática de datos en esta versión del proyecto.
+- Toda interpolación solo podrá implementarse si existe una decisión explícita y documentada en una versión futura del proyecto; hasta entonces el software NO interpolará datos bajo ninguna circunstancia.
 
-Tratamiento de muestras con baja confianza:
-- Muestras con confianza baja podrán ser descartadas o, opcionalmente, interpoladas si forman parte de un pequeño hueco entre muestras de alta confianza. La política por defecto será conservadora (descartar) salvo definición contraria.
+Política de validez y cálculo de métricas:
+- El sistema NUNCA eliminará fotogramas ni mediciones del registro. Todas las muestras capturadas se conservarán tal cual en los outputs junto con su metadato de validez.
+- En presencia de huecos o muestras no válidas, las métricas temporales (p. ej. porcentaje de tiempo, duración continua) se calcularán únicamente sobre el tiempo efectivo considerado válido según las reglas de validez descritas en la sección "Reglas de diseño: validez de mediciones y integridad de datos" más abajo.
+
+Pendiente de definición:
+- gap_max_seconds y políticas de cómo reportar grandes intervalos inválidos (por ejemplo, flags en metadata) — estas políticas deben acordarse y documentarse para versiones futuras.
 
 11. Suavizado temporal
 ----------------------
@@ -218,33 +221,56 @@ Observaciones:
 - Los porcentajes están en 0..100.
 - Campos opcionales (p. ej. frequency_per_minute) pueden ser null/None cuando no aplican o no hay datos suficientes.
 
-13. Limitaciones conocidas
+13. Reglas de diseño: validez de mediciones e integridad de datos
+---------------------------------------------------------------
+Principios de proyecto (obligatorios):
+- El software es un extractor objetivo de información biomecánica; la interpretación y valoración de las mediciones corresponde exclusivamente al ergonomista o profesional cualificado.
+- El sistema NUNCA eliminará fotogramas ni mediciones del registro original.
+- Para cada medición capturada (cada landmark en cada fotograma) el sistema incluirá, de forma obligatoria, los siguientes campos en el registro:
+  - valid: boolean — indica si la medición se considera válida para uso en métricas.
+  - confidence: número (0..100) — solo estará presente cuando valid == true; representa la confianza estimada en la medición en porcentaje.
+  - reason: cadena — solo estará presente cuando valid == false; indica la razón por la que la muestra es inválida.
+
+Valores permitidos para reason (lista cerrada):
+- outside_frame
+- occluded
+- landmarks_missing
+- low_visibility
+- tracking_lost
+- calculation_error
+
+Notas sobre uso:
+- Si valid == false, el campo confidence NO se incluirá y el campo reason deberá contener exactamente uno de los valores listados arriba.
+- Si valid == true, el campo reason NO se incluirá y confidence contendrá un valor entre 0 y 100 (inclusive). El sistema podrá documentar además una medida de calidad interna, pero esta no sustituye el campo confidence.
+- Estos metadatos se conservarán en todos los outputs y por tanto permiten al ergonomista decidir posteriormente si usar, filtrar o ponderar las mediciones.
+
+14. Limitaciones conocidas
 --------------------------
 - Calidad de entrada dependiente de la detección de landmarks: oclusiones, mala iluminación, ángulos de cámara extremos y ropa pueden degradar la precisión.
 - Estimación de planos anatómicos y eje longitudinal del tronco es aproximada cuando solo hay vistas 2D o monoculares; para análisis robusto se recomienda vídeo con cámara lateral o sistemas multi‑cámara/3D.
 - Detección de ángulos complejos (p. ej. rotación axial del tronco) puede ser inconsistente en entornos monoculares sin profundidad.
 - Conteo de movimientos sensible a parámetros de umbral y a suavizado temporal: parámetros inadecuados pueden generar sobreconteo o subconteo.
 
-14. Aspectos pendientes de validación
+15. Aspectos pendientes de validación
 ------------------------------------
 Esta sección recoge las decisiones técnicas que quedan por definir y validar experimentalmente con datos reales y con ergonomistas que revisen los resultados:
 
 - Definición exacta de puntos de referencia para "neck_base" y "head_center" (qué landmarks usar y cómo combinar).
 - Umbrales numéricos de las categorías biomecánicas por articulación (valores angulares en grados que delimitan neutral/leves/moderadas/severas).
-- Política concreta de interpolación (gap_max_seconds) y si se permite interpolación spline en lugar de lineal.
-- Parámetros de suavizado por defecto (tipo de filtro y configuración) y si el suavizado se aplica sobre coordenadas o sobre series angulares.
+- Política concreta sobre reporting de huecos largos (gap_max_seconds) y flags asociados — definir cómo se representará en metadata.
+- Parámetros de suavizado por defecto (tipo de filtro y configuración) y si el suavizado se aplica sobre coordenadas o sobre ángulos.
 - Estrategia de fusión/duplicación cuando múltiples sensores o múltiples contadores aportan señales para la misma articulación (p. ej. deduplicación temporal).
 - Umbral de confianza mínimo por sample para considerarla válida (vinculado al score de detección de la librería de landmarks).
 - Validación clínica/ergonómica: pruebas con usuarios y comparación con medidas de referencia (goniometría o sistemas de captura de movimiento) para estimar error y calibrar umbrales.
 
-15. Anexos: buenas prácticas para la implementación
+16. Anexos: buenas prácticas para la implementación
 ---------------------------------------------------
 - Loguear la tasa de muestras válidas y los gaps detectados para cada sesión.
 - Incluir metadatos de captura (fps, resolución, intrinsics si están disponibles) para facilitar trazabilidad y reproducibilidad.
 - Versionar el modelo (ej.: "biomech_model_version": "1.0-draft") en el metadata.
 - Mantener registros de validación y casos de prueba con vídeos etiquetados para permitir evaluación continua.
 
-16. Historial de versiones
+17. Historial de versiones
 --------------------------
 - 1.0 (Borrador de Diseño) — 2026‑07‑30: primera versión del documento; recoge estructura, convenciones y se marcan explícitamente las decisiones pendientes de definición.
 
