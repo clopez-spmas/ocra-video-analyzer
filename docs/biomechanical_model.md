@@ -270,7 +270,18 @@ Esta sección recoge las decisiones técnicas que quedan por definir y validar e
 - Versionar el modelo (ej.: "biomech_model_version": "1.0-draft") en el metadata.
 - Mantener registros de validación y casos de prueba con vídeos etiquetados para permitir evaluación continua.
 
-17. Historial de versiones
+17. Desarrollo y flujo de trabajo (decisión añadida)
+---------------------------------------------------
+Esta sección documenta el flujo de trabajo recomendado para el desarrollo y evolución del modelo biomecánico dentro del proyecto.
+
+- Todas las modificaciones al modelo (docs o código) deberán referenciar una decisión en el repositorio (issue o RFC) que explique la motivación técnica y la validación necesaria.
+- Cualquier cambio que afecte a la semántica de los outputs (por ejemplo, nuevas claves JSON, cambio de unidades o cambio en la convención de signos) deberá:
+  - ser aprobado en una PR con revisión de al menos un ergonomista del equipo,
+  - incluir tests y ejemplos de salida con datos sintéticos,
+  - actualizar la versión del modelo en metadata (por ejemplo: "biomech_model_version").
+- Las decisiones pendientes documentadas en este fichero deberán vincularse a issues con responsables y plazos aproximados para su resolución.
+
+18. Historial de versiones
 --------------------------
 - 1.0 (Borrador de Diseño) — 2026‑07‑30: primera versión del documento; recoge estructura, convenciones y se marcan explícitamente las decisiones pendientes de definición.
 
