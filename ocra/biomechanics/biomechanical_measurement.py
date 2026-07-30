@@ -14,6 +14,7 @@ class BiomechanicalMeasurement:
     - valid: bool — follows project policy (do not drop data)
     - confidence: Optional[float] (0..100) when valid
     - reason: Optional[str] — reason when invalid
+    - calculation_method: Optional[str] — textual description of the geometric algorithm used
     """
 
     name: str
@@ -23,3 +24,4 @@ class BiomechanicalMeasurement:
     valid: bool = True
     confidence: Optional[float] = None
     reason: Optional[str] = None
+    calculation_method: Optional[str] = None
