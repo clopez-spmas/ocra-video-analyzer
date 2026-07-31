@@ -7,170 +7,463 @@ Main Application Controller
 =========================================================
 
 Responsabilidades:
-- Seleccionar el archivo JSON de Kinovea.
-- Leer y validar el JSON.
-- Crear el objeto analysisResult.
-- Preparar la aplicación para las siguientes fases.
+- Seleccionar archivo JSON de Kinovea.
+- Leer y validar JSON.
+- Convertir datos al modelo interno.
+- Crear analysisResult.
+- Preparar futuras fases:
+    - cálculo angular
+    - detección movimientos
+    - análisis OCRA
 =========================================================
 */
 
+
 let analysisResult = null;
 
+
 document.addEventListener("DOMContentLoaded", () => {
+
 
     const fileInput = document.getElementById("jsonFile");
     const analyzeButton = document.getElementById("analyzeButton");
 
     const status = document.getElementById("status");
 
+
     const fileName = document.getElementById("fileName");
     const fileSize = document.getElementById("fileSize");
     const frameCount = document.getElementById("frameCount");
     const landmarkCount = document.getElementById("landmarkCount");
+    const fps = document.getElementById("fps");
+    const duration = document.getElementById("duration");
+
 
     let selectedFile = null;
 
+
+
     //-----------------------------------------------------
-    // Selección del archivo
+    // Selección archivo
     //-----------------------------------------------------
 
     fileInput.addEventListener("change", (event) => {
 
-        if (event.target.files.length === 0) {
+
+        if (!event.target.files.length) {
+
 
             selectedFile = null;
 
             analyzeButton.disabled = true;
 
-            status.textContent = "Esperando un archivo JSON...";
+            status.textContent =
+                "Esperando un archivo JSON...";
 
-            fileName.textContent = "-";
-            fileSize.textContent = "-";
-            frameCount.textContent = "-";
-            landmarkCount.textContent = "-";
+
+            resetStatistics();
+
 
             return;
 
         }
 
+
         selectedFile = event.target.files[0];
 
-        fileName.textContent = selectedFile.name;
-        fileSize.textContent =
-            (selectedFile.size / 1024).toFixed(2) + " KB";
 
-        status.textContent = "Archivo cargado correctamente.";
+        fileName.textContent =
+            selectedFile.name;
+
+
+        fileSize.textContent =
+            (selectedFile.size / 1024).toFixed(2)
+            + " KB";
+
+
+        status.textContent =
+            "Archivo cargado correctamente.";
+
 
         analyzeButton.disabled = false;
 
+
     });
 
+
+
     //-----------------------------------------------------
-    // Botón Analizar
+    // Analizar
     //-----------------------------------------------------
 
     analyzeButton.addEventListener("click", () => {
 
+
         if (!selectedFile) {
 
-            alert("Seleccione primero un archivo JSON.");
+
+            alert(
+                "Seleccione primero un archivo JSON."
+            );
+
 
             return;
 
         }
 
-        status.textContent = "Leyendo archivo...";
+
+        status.textContent =
+            "Leyendo archivo...";
+
 
         readKinoveaJSON(selectedFile);
 
+
     });
+
+
+
+    //-----------------------------------------------------
+    // Reset pantalla
+    //-----------------------------------------------------
+
+    function resetStatistics() {
+
+
+        fileName.textContent = "-";
+        fileSize.textContent = "-";
+        frameCount.textContent = "-";
+        landmarkCount.textContent = "-";
+        fps.textContent = "-";
+        duration.textContent = "-";
+
+
+    }
+
+
 
 });
 
 
+
+
+
 /*
 =========================================================
-Lectura del JSON
+Lectura JSON Kinovea
 =========================================================
 */
 
+
 function readKinoveaJSON(file) {
+
 
     const reader = new FileReader();
 
-    reader.onload = function (event) {
+
+
+    reader.onload = (event) => {
+
 
         try {
 
-            const json = JSON.parse(event.target.result);
 
-            //-------------------------------------------------
-            // Comprobar que el módulo Kinovea está cargado
-            //-------------------------------------------------
+
+            const json =
+                JSON.parse(event.target.result);
+
+
 
             if (typeof Kinovea === "undefined") {
 
-                throw new Error("El módulo kinovea.js no está cargado.");
+
+                throw new Error(
+                    "kinovea.js no está cargado."
+                );
+
 
             }
 
+
+
+            const frames =
+                Kinovea.parse(json);
+
+
+
+            if (
+                !Array.isArray(frames)
+                ||
+                frames.length === 0
+            ) {
+
+
+                throw new Error(
+                    "El JSON no contiene frames válidos."
+                );
+
+
+            }
+
+
+
             //-------------------------------------------------
-            // Procesar JSON
+            // Crear modelo análisis
             //-------------------------------------------------
 
-            const result = Kinovea.parse(json);
-
-            //-------------------------------------------------
-            // Guardar resultado del análisis
-            //-------------------------------------------------
 
             analysisResult = {
 
-                frames: result.frames,
-                totalFrames: result.frameCount,
-                totalLandmarks: result.landmarkCount
+
+                metadata: {
+
+
+                    fileName: file.name,
+
+
+                    created:
+                        new Date().toISOString()
+
+
+                },
+
+
+                frames: frames,
+
+
+                totalFrames:
+                    frames.length,
+
+
+                angles: [],
+
+
+                movements: [],
+
+
+                ocra: null
+
 
             };
+
+
+
+            //-------------------------------------------------
+            // Estadísticas
+            //-------------------------------------------------
+
+
+            let totalLandmarks = 0;
+
+
+
+            frames.forEach(frame => {
+
+
+                if (
+                    Array.isArray(frame.landmarks)
+                ) {
+
+
+                    totalLandmarks +=
+                        frame.landmarks.length;
+
+
+                }
+
+
+            });
+
+
+
+            const timing =
+                calculateTiming(frames);
+
+
 
             //-------------------------------------------------
             // Actualizar interfaz
             //-------------------------------------------------
 
-            document.getElementById("frameCount").textContent =
-                result.frameCount;
 
-            document.getElementById("landmarkCount").textContent =
-                result.landmarkCount;
+            document.getElementById("fileName")
+                .textContent =
+                file.name;
 
-            document.getElementById("status").textContent =
-                "JSON procesado: " +
-                result.frameCount +
-                " fotogramas.";
 
-            //-------------------------------------------------
-            // Consola
-            //-------------------------------------------------
 
-            console.log("====================================");
-            console.log("Kinovea JSON cargado");
-            console.log("Frames:", result.frameCount);
-            console.log("Landmarks:", result.landmarkCount);
-            console.log(result);
-            console.log("====================================");
+            document.getElementById("fileSize")
+                .textContent =
+                (
+                    file.size / 1024 / 1024
+                ).toFixed(2)
+                + " MB";
+
+
+
+            document.getElementById("frameCount")
+                .textContent =
+                frames.length;
+
+
+
+            document.getElementById("landmarkCount")
+                .textContent =
+                totalLandmarks;
+
+
+
+            document.getElementById("fps")
+                .textContent =
+                timing.fps;
+
+
+
+            document.getElementById("duration")
+                .textContent =
+                timing.duration;
+
+
+
+            document.getElementById("status")
+                .textContent =
+                "✔ JSON procesado correctamente.";
+
+
+
+            console.log(
+                "Analysis Result:",
+                analysisResult
+            );
+
+
 
         }
 
-        catch (error) {
+        catch(error) {
+
 
             console.error(error);
 
-            document.getElementById("status").textContent =
-                "Error: " + error.message;
+
+            document.getElementById("status")
+                .textContent =
+                "❌ Error leyendo el archivo: "
+                + error.message;
+
 
         }
 
+
     };
 
+
+
     reader.readAsText(file);
+
+
+}
+
+
+
+
+
+/*
+=========================================================
+Cálculo FPS y duración
+=========================================================
+*/
+
+
+function calculateTiming(frames) {
+
+
+
+    if (frames.length < 2) {
+
+
+        return {
+
+            fps: "-",
+
+            duration: "-"
+
+        };
+
+
+    }
+
+
+
+    let t0 =
+        frames[0].timestamp || 0;
+
+
+    let t1 =
+        frames[frames.length - 1].timestamp || 0;
+
+
+
+    let seconds =
+        t1 - t0;
+
+
+
+    // Kinovea puede exportar milisegundos
+
+    if (seconds > 100) {
+
+
+        seconds =
+            seconds / 1000;
+
+
+    }
+
+
+
+    if (seconds <= 0) {
+
+
+        return {
+
+
+            fps: "-",
+
+
+            duration: "-"
+
+
+        };
+
+
+    }
+
+
+
+    return {
+
+
+        fps:
+            (
+                frames.length / seconds
+            ).toFixed(2),
+
+
+
+        duration:
+
+
+            Math.floor(seconds / 60)
+            +
+            " min "
+            +
+            Math.floor(seconds % 60)
+            +
+            " s"
+
+
+
+    };
 
 }
