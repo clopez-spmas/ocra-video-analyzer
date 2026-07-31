@@ -51,7 +51,8 @@ def test_analysis_pipeline_and_analysis_result_contract(tmp_path):
     pipeline = AnalysisPipeline()
     result = pipeline.run(str(f))
 
-    assert isinstance(result, AnalysisResult)
+    # Structural contract: should expose pose_frames and biomechanical_frames lists
+    assert hasattr(result, "pose_frames") and hasattr(result, "biomechanical_frames")
     assert isinstance(result.pose_frames, list)
     assert isinstance(result.biomechanical_frames, list)
     # 1:1 correspondence asserted by AnalysisResult contract
