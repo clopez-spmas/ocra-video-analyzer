@@ -17,22 +17,33 @@ class AnalysisPipeline:
 
     Flujo:
 
-    Kinovea JSON
-        ->
-    PoseFrame
-        ->
-    BiomechanicalFrame
-        ->
-    PostureAnalyzer (opcional)
-        ->
-    AnalysisResult
+        Kinovea JSON
+             |
+             v
+        PoseFrame
+             |
+             v
+        BiomechanicalFrame
+             |
+             v
+        PostureAnalyzer
+             |
+             v
+        AnalysisResult
 
 
-    No realiza:
-    - puntuación OCRA
-    - evaluación normativa
-    - clasificación de riesgo
+    NO:
+    - calcula puntuación OCRA
+    - calcula riesgo ergonómico
+    - modifica frames originales
+
+    SI:
+    - calcula ángulos biomecánicos
+    - analiza exposición postural
+    - calcula tiempos sobre umbral
     """
+
+
 
     def __init__(self) -> None:
 
@@ -49,38 +60,47 @@ class AnalysisPipeline:
         tracking_path: str,
         video_path: Optional[str] = None,
         posture_thresholds: Optional[Dict[str, float]] = None
+
     ) -> AnalysisResult:
 
 
-        # ---------------------------------------------
+        # -------------------------------------------------
         # 1. Cargar datos Kinovea
-        # ---------------------------------------------
+        # -------------------------------------------------
 
         pose_frames: List[PoseFrame] = (
             self.provider.load(tracking_path)
         )
 
 
-        # ---------------------------------------------
-        # 2. Calcular biomecánica por frame
-        # ---------------------------------------------
+
+        # -------------------------------------------------
+        # 2. Obtener medidas biomecánicas
+        # -------------------------------------------------
 
         biomechanical_frames = []
 
 
-        for pf in pose_frames:
+        for pose_frame in pose_frames:
 
-            bf = self.analyzer.analyze_frame(pf)
+            biomechanical_frame = (
+                self.analyzer.analyze_frame(
+                    pose_frame
+                )
+            )
 
-            biomechanical_frames.append(bf)
+            biomechanical_frames.append(
+                biomechanical_frame
+            )
 
 
 
-        # ---------------------------------------------
-        # 3. Análisis temporal de posturas
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # 3. Analizar exposición postural
+        # -------------------------------------------------
 
         posture_results = {}
+
 
 
         if posture_thresholds:
@@ -95,9 +115,9 @@ class AnalysisPipeline:
 
 
 
-        # ---------------------------------------------
-        # 4. Resultado final
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # 4. Metadata
+        # -------------------------------------------------
 
         metadata: Dict[str, Any] = {
 
@@ -111,23 +131,27 @@ class AnalysisPipeline:
                 len(pose_frames),
 
             "num_biomechanical_frames":
-                len(biomechanical_frames)
+                len(biomechanical_frames),
+
+            "posture_analysis":
+                bool(posture_thresholds)
 
         }
 
 
 
+        # -------------------------------------------------
+        # 5. Resultado final
+        # -------------------------------------------------
+
         return AnalysisResult(
 
             pose_frames=pose_frames,
 
-            biomechanical_frames=
-                biomechanical_frames,
+            biomechanical_frames=biomechanical_frames,
 
-            posture_results=
-                posture_results,
+            posture_results=posture_results,
 
-            metadata=
-                metadata
+            metadata=metadata
 
         )
