@@ -1,1 +1,328 @@
+/* =====================================================
+   OCRA VIDEO ANALYZER
+   Style v1.0
+===================================================== */
 
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    background:#eef2f7;
+    color:#2d3748;
+
+    padding:30px;
+
+}
+
+/* ========================================= */
+
+.header{
+
+    background:white;
+
+    border-radius:12px;
+
+    padding:30px;
+
+    margin-bottom:25px;
+
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+
+}
+
+.header h1{
+
+    color:#005a9c;
+
+    font-size:34px;
+
+    margin-bottom:10px;
+
+}
+
+.header p{
+
+    color:#666;
+
+    font-size:18px;
+
+}
+
+/* ========================================= */
+
+main{
+
+    max-width:1200px;
+
+    margin:auto;
+
+}
+
+/* ========================================= */
+
+section{
+
+    background:white;
+
+    border-radius:12px;
+
+    padding:25px;
+
+    margin-bottom:25px;
+
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+
+}
+
+section h2{
+
+    color:#005a9c;
+
+    margin-bottom:20px;
+
+    border-bottom:2px solid #d9e4ef;
+
+    padding-bottom:10px;
+
+}
+
+/* ========================================= */
+
+button{
+
+    background:#0078d4;
+
+    color:white;
+
+    border:none;
+
+    padding:14px 28px;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-size:16px;
+
+    font-weight:bold;
+
+    transition:.2s;
+
+}
+
+button:hover{
+
+    background:#005fa8;
+
+}
+
+button:disabled{
+
+    background:#cccccc;
+
+    cursor:not-allowed;
+
+}
+
+/* ========================================= */
+
+input[type=file]{
+
+    margin:15px 0;
+
+}
+
+/* ========================================= */
+
+.info-grid{
+
+    display:grid;
+
+    grid-template-columns:200px auto;
+
+    gap:12px;
+
+    margin-top:15px;
+
+}
+
+.info-grid div{
+
+    padding:8px;
+
+}
+
+.label{
+
+    font-weight:bold;
+
+    color:#555;
+
+}
+
+.value{
+
+    color:#111;
+
+}
+
+/* ========================================= */
+
+.status{
+
+    padding:15px;
+
+    border-radius:8px;
+
+    background:#f4f8fb;
+
+    border-left:5px solid #0078d4;
+
+    font-weight:bold;
+
+}
+
+/* ========================================= */
+
+.result-card{
+
+    background:#f8fafc;
+
+    border-radius:10px;
+
+    padding:18px;
+
+    margin-top:15px;
+
+    border:1px solid #dde7f0;
+
+}
+
+.result-card h3{
+
+    color:#005a9c;
+
+    margin-bottom:12px;
+
+}
+
+.result-value{
+
+    font-size:30px;
+
+    font-weight:bold;
+
+    color:#005a9c;
+
+}
+
+/* ========================================= */
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    margin-top:15px;
+
+}
+
+th{
+
+    background:#005a9c;
+
+    color:white;
+
+    padding:12px;
+
+}
+
+td{
+
+    padding:10px;
+
+    border-bottom:1px solid #ddd;
+
+}
+
+tr:nth-child(even){
+
+    background:#f7f9fb;
+
+}
+
+/* ========================================= */
+
+.footer{
+
+    margin-top:40px;
+
+    text-align:center;
+
+    color:#777;
+
+    font-size:13px;
+
+}
+
+/* ========================================= */
+
+.card-success{
+
+    border-left:6px solid #3cb371;
+
+}
+
+.card-warning{
+
+    border-left:6px solid #ff9800;
+
+}
+
+.card-danger{
+
+    border-left:6px solid #e53935;
+
+}
+
+/* ========================================= */
+
+@media(max-width:900px){
+
+    body{
+
+        padding:15px;
+
+    }
+
+    .header{
+
+        padding:20px;
+
+    }
+
+    .header h1{
+
+        font-size:28px;
+
+    }
+
+    .info-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    button{
+
+        width:100%;
+
+    }
+
+}
