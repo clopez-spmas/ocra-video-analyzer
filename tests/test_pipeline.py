@@ -38,8 +38,9 @@ class FakeEstimator:
         right_hip = Landmark(id=24, x=1.0, y=1.0, z=0.0, visibility=1.0)
 
         # Add index finger landmarks so wrist angle (elbow - wrist - index) is ~90 degrees
-        left_index = Landmark(id=17, x=2.0, y=1.0, z=0.0, visibility=1.0)
-        right_index = Landmark(id=18, x=2.0, y=1.0, z=0.0, visibility=1.0)
+        # The index should be directly above the wrist (same x, larger y) to form a right angle
+        left_index = Landmark(id=17, x=1.0, y=1.0, z=0.0, visibility=1.0)
+        right_index = Landmark(id=18, x=1.0, y=1.0, z=0.0, visibility=1.0)
 
         landmarks = {
             11: a_left,
