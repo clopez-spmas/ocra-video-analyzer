@@ -5,7 +5,16 @@
 OCRA Video Analyzer
 Main Application Controller
 =========================================================
+
+Responsabilidades:
+- Seleccionar el archivo JSON de Kinovea.
+- Leer y validar el JSON.
+- Crear el objeto analysisResult.
+- Preparar la aplicación para las siguientes fases.
+=========================================================
 */
+
+let analysisResult = null;
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -16,6 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fileName = document.getElementById("fileName");
     const fileSize = document.getElementById("fileSize");
+    const frameCount = document.getElementById("frameCount");
+    const landmarkCount = document.getElementById("landmarkCount");
 
     let selectedFile = null;
 
@@ -34,8 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
             status.textContent = "Esperando un archivo JSON...";
 
             fileName.textContent = "-";
-
             fileSize.textContent = "-";
+            frameCount.textContent = "-";
+            landmarkCount.textContent = "-";
 
             return;
 
@@ -44,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedFile = event.target.files[0];
 
         fileName.textContent = selectedFile.name;
-
         fileSize.textContent =
             (selectedFile.size / 1024).toFixed(2) + " KB";
 
@@ -76,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+
 /*
 =========================================================
 Lectura del JSON
@@ -92,10 +104,59 @@ function readKinoveaJSON(file) {
 
             const json = JSON.parse(event.target.result);
 
-            console.log(json);
+            //-------------------------------------------------
+            // Comprobar que el módulo Kinovea está cargado
+            //-------------------------------------------------
+
+            if (typeof Kinovea === "undefined") {
+
+                throw new Error("El módulo kinovea.js no está cargado.");
+
+            }
+
+            //-------------------------------------------------
+            // Procesar JSON
+            //-------------------------------------------------
+
+            const result = Kinovea.parse(json);
+
+            //-------------------------------------------------
+            // Guardar resultado del análisis
+            //-------------------------------------------------
+
+            analysisResult = {
+
+                frames: result.frames,
+                totalFrames: result.frameCount,
+                totalLandmarks: result.landmarkCount
+
+            };
+
+            //-------------------------------------------------
+            // Actualizar interfaz
+            //-------------------------------------------------
+
+            document.getElementById("frameCount").textContent =
+                result.frameCount;
+
+            document.getElementById("landmarkCount").textContent =
+                result.landmarkCount;
 
             document.getElementById("status").textContent =
-                "JSON leído correctamente.";
+                "JSON procesado: " +
+                result.frameCount +
+                " fotogramas.";
+
+            //-------------------------------------------------
+            // Consola
+            //-------------------------------------------------
+
+            console.log("====================================");
+            console.log("Kinovea JSON cargado");
+            console.log("Frames:", result.frameCount);
+            console.log("Landmarks:", result.landmarkCount);
+            console.log(result);
+            console.log("====================================");
 
         }
 
@@ -104,7 +165,7 @@ function readKinoveaJSON(file) {
             console.error(error);
 
             document.getElementById("status").textContent =
-                "El archivo no contiene un JSON válido.";
+                "Error: " + error.message;
 
         }
 
