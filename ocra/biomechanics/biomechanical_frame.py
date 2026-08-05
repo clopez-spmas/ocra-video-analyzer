@@ -7,16 +7,11 @@ from ocra.biomechanics.biomechanical_measurement import BiomechanicalMeasurement
 
 @dataclass
 class BiomechanicalFrame:
-    """Biomechanical data calculated for a single video frame.
-
-    A BiomechanicalFrame contains all biomechanical measurements
-    computed from one PoseFrame.
-    """
+    """Collection of biomechanical measurements for a single video frame."""
 
     frame_index: int
     timestamp: float
     source_pose_frame: PoseFrame
-
     measurements: Dict[str, BiomechanicalMeasurement] = field(default_factory=dict)
 
     def as_list(self) -> List[BiomechanicalMeasurement]:
@@ -30,21 +25,3 @@ class BiomechanicalFrame:
     def add(self, measurement: BiomechanicalMeasurement) -> None:
         """Add or replace a measurement."""
         self.measurements[measurement.id] = measurement
-
-    def keys(self):
-        """Return measurement identifiers."""
-        return self.measurements.keys()
-
-    def values(self):
-        """Return measurement objects."""
-        return self.measurements.values()
-
-    def items(self):
-        """Return (id, measurement) pairs."""
-        return self.measurements.items()
-
-    def __contains__(self, measurement_id: str) -> bool:
-        return measurement_id in self.measurements
-
-    def __len__(self) -> int:
-        return len(self.measurements)
