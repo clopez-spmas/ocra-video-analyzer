@@ -1,3 +1,4 @@
+
 "use strict";
 
 /*
@@ -11,10 +12,8 @@ Responsabilidades:
 - Leer y validar JSON.
 - Convertir datos al modelo interno.
 - Crear analysisResult.
-- Mostrar resultados biomecánicos reales.
-- Preparar futuras fases:
-    - detección movimientos
-    - análisis OCRA
+- Convertir ángulos del motor biomecánico
+  en BiomechanicalMeasurement para visualización.
 =========================================================
 */
 
@@ -63,10 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedFile = null;
 
 
-
-    //-----------------------------------------------------
-    // Selección archivo
-    //-----------------------------------------------------
 
     fileInput.addEventListener(
         "change",
@@ -122,10 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    //-----------------------------------------------------
-    // Analizar
-    //-----------------------------------------------------
-
     analyzeButton.addEventListener(
         "click",
         () => {
@@ -156,10 +147,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    //-----------------------------------------------------
-    // Reset pantalla
-    //-----------------------------------------------------
-
     function resetStatistics() {
 
 
@@ -183,13 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-/*
-=========================================================
-Lectura JSON Kinovea
-=========================================================
-*/
-
-
 function readKinoveaJSON(file) {
 
 
@@ -211,7 +191,6 @@ function readKinoveaJSON(file) {
                     );
 
 
-
                 if (typeof Kinovea === "undefined") {
 
 
@@ -221,7 +200,6 @@ function readKinoveaJSON(file) {
 
 
                 }
-
 
 
                 const frames =
@@ -245,15 +223,10 @@ function readKinoveaJSON(file) {
 
 
 
-                //-------------------------------------------------
-                // Crear modelo análisis
-                //-------------------------------------------------
-
                 analysisResult = {
 
 
                     metadata: {
-
 
                         fileName:
                             file.name,
@@ -261,7 +234,6 @@ function readKinoveaJSON(file) {
 
                         created:
                             new Date().toISOString()
-
 
                     },
 
@@ -273,20 +245,15 @@ function readKinoveaJSON(file) {
                         frames.length,
 
 
-                    /*
-                    Reservado para resultados
-                    generados por el motor biomecánico
-                    */
-
-
-                    biomechanicalMeasurements: [],
+                    biomechanicalMeasurements:
+                        extractBiomechanicalMeasurements(
+                            frames
+                        ),
 
 
                     angles: [],
 
-
                     movements: [],
-
 
                     ocra: null
 
@@ -295,12 +262,7 @@ function readKinoveaJSON(file) {
 
 
 
-                //-------------------------------------------------
-                // Estadísticas
-                //-------------------------------------------------
-
                 let totalLandmarks = 0;
-
 
 
                 frames.forEach(
@@ -331,23 +293,9 @@ function readKinoveaJSON(file) {
 
 
 
-                //-------------------------------------------------
-                // Actualizar interfaz
-                //-------------------------------------------------
-
                 document.getElementById("fileName")
                     .textContent =
                     file.name;
-
-
-
-                document.getElementById("fileSize")
-                    .textContent =
-                    (
-                        file.size / 1024 / 1024
-                    ).toFixed(2)
-                    +
-                    " MB";
 
 
 
@@ -379,12 +327,6 @@ function readKinoveaJSON(file) {
                     .textContent =
                     "✔ JSON procesado correctamente.";
 
-
-
-                //-------------------------------------------------
-                // Mostrar resultados
-                //-------------------------------------------------
-
                 showBiomechanicalResults(
                     analysisResult
                 );
@@ -410,12 +352,10 @@ function readKinoveaJSON(file) {
                 );
 
 
-
                 console.log(
                     "Analysis Result:",
                     analysisResult
                 );
-
 
 
             }
@@ -439,8 +379,143 @@ function readKinoveaJSON(file) {
         };
 
 
-
     reader.readAsText(file);
+
+
+}
+
+
+
+/*
+=========================================================
+Conversión de ángulos a mediciones biomecánicas
+=========================================================
+*/
+
+
+function extractBiomechanicalMeasurements(frames) {
+
+
+    const measurements = [];
+
+
+
+    frames.forEach(
+        frame => {
+
+
+            if (
+                !frame.angles
+            ) {
+
+                return;
+
+            }
+
+
+
+            Object.entries(
+                frame.angles
+            ).forEach(
+                ([name, value]) => {
+
+
+
+                    if (
+                        value === null
+                        ||
+                        value === undefined
+                    ) {
+
+                        return;
+
+                    }
+
+
+
+                    let side = null;
+
+
+                    if (
+                        name.includes("left")
+                    ) {
+
+                        side = "left";
+
+                    }
+
+
+                    if (
+                        name.includes("right")
+                    ) {
+
+                        side = "right";
+
+                    }
+
+
+
+                    measurements.push({
+
+                        name: name,
+
+
+                        value: Number(value),
+
+
+                        unit: "deg",
+
+
+                        category: null,
+
+
+                        side: side,
+
+
+                        body_region:
+                            "upper_limb",
+
+
+                        frame_index:
+                            frame.frameIndex
+                            ??
+                            frame.frame_index
+                            ??
+                            null,
+
+
+                        timestamp:
+                            frame.timestamp
+                            ??
+                            null,
+
+
+                        valid: true,
+
+
+                        confidence: null,
+
+
+                        reason: null,
+
+
+                        calculation_method:
+                            "JointAngleCalculator"
+
+
+                    });
+
+
+                }
+            );
+
+
+        }
+    );
+
+
+
+    return measurements;
 
 
 }
@@ -477,9 +552,10 @@ function calculateTiming(frames) {
         frames[0].timestamp || 0;
 
 
-
     let t1 =
-        frames[frames.length - 1].timestamp || 0;
+        frames[
+            frames.length - 1
+        ].timestamp || 0;
 
 
 
@@ -490,10 +566,8 @@ function calculateTiming(frames) {
 
     if (seconds > 100) {
 
-
         seconds =
             seconds / 1000;
-
 
     }
 
@@ -524,7 +598,6 @@ function calculateTiming(frames) {
             ).toFixed(2),
 
 
-
         duration:
 
             Math.floor(seconds / 60)
@@ -540,9 +613,12 @@ function calculateTiming(frames) {
 
 
 }
+
+
+
 /*
 =========================================================
-Visualización de resultados biomecánicos
+Panel biomecánico
 =========================================================
 */
 
@@ -558,10 +634,6 @@ function showBiomechanicalResults(result) {
 
     if (!container) {
 
-        console.warn(
-            "Panel biomechanics no encontrado."
-        );
-
         return;
 
     }
@@ -573,19 +645,15 @@ function showBiomechanicalResults(result) {
 
 
 
-    //-----------------------------------------------------
-    // Todavía no hay datos reales
-    //-----------------------------------------------------
-
     if (
-        !Array.isArray(measurements)
+        !measurements
         ||
         measurements.length === 0
     ) {
 
 
         container.textContent =
-            "No existen mediciones biomecánicas disponibles.";
+            "No hay mediciones biomecánicas disponibles.";
 
 
         return;
@@ -594,13 +662,9 @@ function showBiomechanicalResults(result) {
 
 
 
-    //-----------------------------------------------------
-    // Crear tabla resultados reales
-    //-----------------------------------------------------
-
     let html = `
 
-        <table class="biomechanical-table">
+        <table>
 
             <thead>
 
@@ -608,13 +672,15 @@ function showBiomechanicalResults(result) {
 
                     <th>Frame</th>
 
-                    <th>Articulación</th>
+                    <th>Medición</th>
+
+                    <th>Valor</th>
+
+                    <th>Unidad</th>
 
                     <th>Lado</th>
 
-                    <th>Ángulo</th>
-
-                    <th>Categoría</th>
+                    <th>Región</th>
 
                     <th>Tiempo</th>
 
@@ -638,55 +704,49 @@ function showBiomechanicalResults(result) {
 
                     <td>
                         ${
-                            measurement.frame ??
-                            "-"
+                            measurement.frame_index
                         }
                     </td>
 
 
                     <td>
                         ${
-                            measurement.joint ??
-                            measurement.name ??
-                            "-"
+                            measurement.name
                         }
                     </td>
 
 
                     <td>
                         ${
-                            measurement.side ??
-                            "-"
+                            measurement.value.toFixed(2)
                         }
                     </td>
 
 
                     <td>
                         ${
-                            measurement.angle !== undefined
-                            ?
-                            Number(
-                                measurement.angle
-                            ).toFixed(2)
-                            :
-                            "-"
-                        }
-                        °
-                    </td>
-
-
-                    <td>
-                        ${
-                            measurement.category ??
-                            "-"
+                            measurement.unit
                         }
                     </td>
 
 
                     <td>
                         ${
-                            measurement.time ??
-                            "-"
+                            measurement.side ?? "-"
+                        }
+                    </td>
+
+
+                    <td>
+                        ${
+                            measurement.body_region
+                        }
+                    </td>
+
+
+                    <td>
+                        ${
+                            measurement.timestamp ?? "-"
                         }
                     </td>
 
@@ -719,11 +779,9 @@ function showBiomechanicalResults(result) {
 
 
 
-
-
 /*
 =========================================================
-Visualización postura
+Paneles pendientes
 =========================================================
 */
 
@@ -731,114 +789,77 @@ Visualización postura
 function showPostureResults(result) {
 
 
-    const container =
+    const element =
         document.getElementById(
             "postureResults"
         );
 
 
-    if (!container) {
+    if (element) {
 
-        return;
+        element.textContent =
+            "Pendiente de integración con PostureAnalyzer.";
 
     }
 
-
-
-    container.textContent =
-        "Pendiente de integración con PostureAnalyzer.";
-
 }
 
-
-
-/*
-=========================================================
-Visualización movimientos
-=========================================================
-*/
 
 
 function showMovementResults(result) {
 
 
-    const container =
+    const element =
         document.getElementById(
             "movementResults"
         );
 
 
-    if (!container) {
+    if (element) {
 
-        return;
+        element.textContent =
+            "Pendiente de integración con MovementManager.";
 
     }
 
-
-
-    container.textContent =
-        "Pendiente de integración con MovementManager.";
-
 }
 
-
-
-/*
-=========================================================
-Métricas análisis
-=========================================================
-*/
 
 
 function showAnalysisMetrics(result) {
 
 
-    const container =
+    const element =
         document.getElementById(
             "analysisMetrics"
         );
 
 
-    if (!container) {
+    if (element) {
 
-        return;
+        element.textContent =
+            "Pendiente de cálculo de métricas.";
 
     }
-
-
-
-    container.textContent =
-        "Pendiente de cálculo de métricas.";
 
 }
 
 
 
-/*
-=========================================================
-Evaluación OCRA
-=========================================================
-*/
-
-
 function showOcraEvaluation(result) {
 
 
-    const container =
+    const element =
         document.getElementById(
             "ocraResults"
         );
 
 
-    if (!container) {
+    if (element) {
 
-        return;
+        element.textContent =
+            "Pendiente de evaluación OCRA.";
 
     }
-
-
-
-    container.textContent =
-        "Pendiente de evaluación OCRA.";
 
 }
