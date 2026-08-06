@@ -2,22 +2,35 @@
 <html lang="es">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>OCRA Video Analyzer</title>
 
     <link rel="stylesheet" href="css/style.css">
+
 </head>
 
 <body>
 
 <header class="header">
+
     <h1>OCRA Video Analyzer</h1>
-    <p>Análisis biomecánico basado en archivos JSON exportados por Kinovea</p>
+
+    <p>
+        Análisis biomecánico basado en archivos JSON exportados por Kinovea
+    </p>
+
 </header>
 
 <main>
+
+    <!-- ===================================================== -->
+    <!-- Archivo -->
+    <!-- ===================================================== -->
 
     <section class="panel">
 
@@ -32,21 +45,35 @@
             Ningún archivo seleccionado.
         </p>
 
-        <button id="analyzeButton" disabled>
+        <button
+            id="analyzeButton"
+            disabled>
+
             Analizar
+
         </button>
 
     </section>
+
+    <!-- ===================================================== -->
+    <!-- Estado -->
+    <!-- ===================================================== -->
 
     <section class="panel">
 
         <h2>Estado</h2>
 
         <div id="status">
+
             Esperando un archivo JSON...
+
         </div>
 
     </section>
+
+    <!-- ===================================================== -->
+    <!-- Información -->
+    <!-- ===================================================== -->
 
     <section class="panel">
 
@@ -78,6 +105,10 @@
 
     </section>
 
+    <!-- ===================================================== -->
+    <!-- Resultados biomecánicos -->
+    <!-- ===================================================== -->
+
     <section class="panel">
 
         <h2>Resultados biomecánicos</h2>
@@ -90,6 +121,58 @@
 
     </section>
 
+    <!-- ===================================================== -->
+    <!-- NUEVO -->
+    <!-- ===================================================== -->
+
+    <section class="panel">
+
+        <h2>Posture Analysis</h2>
+
+        <div id="postureResults">
+
+            Pending analysis.
+
+        </div>
+
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- NUEVO -->
+    <!-- ===================================================== -->
+
+    <section class="panel">
+
+        <h2>Movement Analysis</h2>
+
+        <div id="movementResults">
+
+            Pending analysis.
+
+        </div>
+
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- NUEVO -->
+    <!-- ===================================================== -->
+
+    <section class="panel">
+
+        <h2>Analysis Metrics</h2>
+
+        <div id="analysisMetrics">
+
+            Pending analysis.
+
+        </div>
+
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- Acciones técnicas -->
+    <!-- ===================================================== -->
+
     <section class="panel">
 
         <h2>Acciones técnicas</h2>
@@ -101,6 +184,10 @@
         </div>
 
     </section>
+
+    <!-- ===================================================== -->
+    <!-- Evaluación -->
+    <!-- ===================================================== -->
 
     <section class="panel">
 
