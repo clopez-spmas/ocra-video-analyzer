@@ -18,18 +18,14 @@ Responsabilidades:
 =========================================================
 */
 
-
 let analysisResult = null;
 
-
 document.addEventListener("DOMContentLoaded", () => {
-
 
     const fileInput = document.getElementById("jsonFile");
     const analyzeButton = document.getElementById("analyzeButton");
 
     const status = document.getElementById("status");
-
 
     const fileName = document.getElementById("fileName");
     const fileSize = document.getElementById("fileSize");
@@ -38,10 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const fps = document.getElementById("fps");
     const duration = document.getElementById("duration");
 
-
     let selectedFile = null;
-
-
 
     //-----------------------------------------------------
     // Selección archivo
@@ -49,9 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fileInput.addEventListener("change", (event) => {
 
-
         if (!event.target.files.length) {
-
 
             selectedFile = null;
 
@@ -60,37 +51,27 @@ document.addEventListener("DOMContentLoaded", () => {
             status.textContent =
                 "Esperando un archivo JSON...";
 
-
             resetStatistics();
-
 
             return;
 
         }
 
-
         selectedFile = event.target.files[0];
-
 
         fileName.textContent =
             selectedFile.name;
-
 
         fileSize.textContent =
             (selectedFile.size / 1024).toFixed(2)
             + " KB";
 
-
         status.textContent =
             "Archivo cargado correctamente.";
 
-
         analyzeButton.disabled = false;
 
-
     });
-
-
 
     //-----------------------------------------------------
     // Analizar
@@ -98,37 +79,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     analyzeButton.addEventListener("click", () => {
 
-
         if (!selectedFile) {
-
 
             alert(
                 "Seleccione primero un archivo JSON."
             );
 
-
             return;
 
         }
 
-
         status.textContent =
             "Leyendo archivo...";
 
-
         readKinoveaJSON(selectedFile);
 
-
     });
-
-
 
     //-----------------------------------------------------
     // Reset pantalla
     //-----------------------------------------------------
 
     function resetStatistics() {
-
 
         fileName.textContent = "-";
         fileSize.textContent = "-";
@@ -137,16 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
         fps.textContent = "-";
         duration.textContent = "-";
 
-
     }
 
-
-
 });
-
-
-
-
 
 /*
 =========================================================
@@ -154,42 +119,27 @@ Lectura JSON Kinovea
 =========================================================
 */
 
-
 function readKinoveaJSON(file) {
-
 
     const reader = new FileReader();
 
-
-
     reader.onload = (event) => {
 
-
         try {
-
-
 
             const json =
                 JSON.parse(event.target.result);
 
-
-
             if (typeof Kinovea === "undefined") {
-
 
                 throw new Error(
                     "kinovea.js no está cargado."
                 );
 
-
             }
-
-
 
             const frames =
                 Kinovea.parse(json);
-
-
 
             if (
                 !Array.isArray(frames)
@@ -197,100 +147,69 @@ function readKinoveaJSON(file) {
                 frames.length === 0
             ) {
 
-
                 throw new Error(
                     "El JSON no contiene frames válidos."
                 );
 
-
             }
-
-
 
             //-------------------------------------------------
             // Crear modelo análisis
             //-------------------------------------------------
 
-
             analysisResult = {
-
 
                 metadata: {
 
-
                     fileName: file.name,
-
 
                     created:
                         new Date().toISOString()
 
-
                 },
 
-
                 frames: frames,
-
 
                 totalFrames:
                     frames.length,
 
-
                 angles: [],
-
 
                 movements: [],
 
-
                 ocra: null
 
-
             };
-
-
 
             //-------------------------------------------------
             // Estadísticas
             //-------------------------------------------------
 
-
             let totalLandmarks = 0;
 
-
-
             frames.forEach(frame => {
-
 
                 if (
                     Array.isArray(frame.landmarks)
                 ) {
 
-
                     totalLandmarks +=
                         frame.landmarks.length;
 
-
                 }
-
 
             });
 
-
-
             const timing =
                 calculateTiming(frames);
-
-
 
             //-------------------------------------------------
             // Actualizar interfaz
             //-------------------------------------------------
 
-
             document.getElementById("fileName")
                 .textContent =
                 file.name;
-
-
 
             document.getElementById("fileSize")
                 .textContent =
@@ -299,74 +218,59 @@ function readKinoveaJSON(file) {
                 ).toFixed(2)
                 + " MB";
 
-
-
             document.getElementById("frameCount")
                 .textContent =
                 frames.length;
-
-
 
             document.getElementById("landmarkCount")
                 .textContent =
                 totalLandmarks;
 
-
-
             document.getElementById("fps")
                 .textContent =
                 timing.fps;
-
-
 
             document.getElementById("duration")
                 .textContent =
                 timing.duration;
 
-
-
             document.getElementById("status")
                 .textContent =
                 "✔ JSON procesado correctamente.";
 
+            //-------------------------------------------------
+            // Actualizar paneles (preparado para futuras fases)
+            //-------------------------------------------------
 
+            showBiomechanicalResults(analysisResult);
+            showPostureResults(analysisResult);
+            showMovementResults(analysisResult);
+            showAnalysisMetrics(analysisResult);
+            showOcraEvaluation(analysisResult);
 
             console.log(
                 "Analysis Result:",
                 analysisResult
             );
 
-
-
         }
 
         catch(error) {
 
-
             console.error(error);
-
 
             document.getElementById("status")
                 .textContent =
                 "❌ Error leyendo el archivo: "
                 + error.message;
 
-
         }
-
 
     };
 
-
-
     reader.readAsText(file);
 
-
 }
-
-
-
-
 
 /*
 =========================================================
@@ -374,13 +278,9 @@ Cálculo FPS y duración
 =========================================================
 */
 
-
 function calculateTiming(frames) {
 
-
-
     if (frames.length < 2) {
-
 
         return {
 
@@ -390,69 +290,46 @@ function calculateTiming(frames) {
 
         };
 
-
     }
-
-
 
     let t0 =
         frames[0].timestamp || 0;
 
-
     let t1 =
         frames[frames.length - 1].timestamp || 0;
 
-
-
     let seconds =
         t1 - t0;
-
-
 
     // Kinovea puede exportar milisegundos
 
     if (seconds > 100) {
 
-
         seconds =
             seconds / 1000;
 
-
     }
-
-
 
     if (seconds <= 0) {
 
-
         return {
-
 
             fps: "-",
 
-
             duration: "-"
-
 
         };
 
-
     }
 
-
-
     return {
-
 
         fps:
             (
                 frames.length / seconds
             ).toFixed(2),
 
-
-
         duration:
-
 
             Math.floor(seconds / 60)
             +
@@ -462,8 +339,47 @@ function calculateTiming(frames) {
             +
             " s"
 
-
-
     };
+
+}
+
+/*
+=========================================================
+Visualización de resultados
+=========================================================
+*/
+
+function showBiomechanicalResults(result) {
+
+    document.getElementById("biomechanics").textContent =
+        "Pendiente de implementar.";
+
+}
+
+function showPostureResults(result) {
+
+    document.getElementById("postureResults").textContent =
+        "Pendiente de implementar.";
+
+}
+
+function showMovementResults(result) {
+
+    document.getElementById("movementResults").textContent =
+        "Pendiente de implementar.";
+
+}
+
+function showAnalysisMetrics(result) {
+
+    document.getElementById("analysisMetrics").textContent =
+        "Pendiente de implementar.";
+
+}
+
+function showOcraEvaluation(result) {
+
+    document.getElementById("ocraResults").textContent =
+        "Pendiente de implementar.";
 
 }
