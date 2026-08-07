@@ -386,36 +386,27 @@ if (
                     kinovea:
                         kinoveaData,
 
+    frames:
+                    kinoveaData.frames,
 
 
-                    frames:
-                        kinoveaData.frames,
+                totalFrames:
+                    kinoveaData.frameCount,
 
 
-
-                    totalFrames:
-                        kinoveaData.frameCount,
-
-
-
-                    biomechanicalMeasurements:
-                      Biomechanics.analyzeBiomechanics(
-    kinoveaData.frames
-)
+                biomechanicalMeasurements:
+                    Biomechanics.analyzeBiomechanics(
+                        kinoveaData.frames
+                    ),
 
 
-
-                    angles: [],
-
-
-                    movements: [],
+                angles: [],
 
 
-                    ocra:null
+                movements: [],
 
 
-                };
-
+                ocra: null
 
 
 
