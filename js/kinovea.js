@@ -2,14 +2,14 @@
 
 /*
 =========================================================
-Kinovea JSON Converter
-Compatible with Kinovea 2024.1.1
+KINOVEA JSON CONVERTER
+Compatible con Kinovea 2024.1.1
 
 Responsabilidades:
-- Leer JSON exportado por Kinovea.
-- Convertir timeseries a frames.
+- Convertir JSON exportado por Kinovea.
+- Transformar timeseries en frames.
 - Mantener tiempos reales.
-- Crear modelo interno independiente de Kinovea.
+- Crear un modelo independiente de Kinovea.
 
 Entrada:
 Kinovea JSON 2024.1.1
@@ -21,38 +21,46 @@ Salida:
     duration,
     imageSize,
     markers,
-    frames[]
+    frameCount,
+    frames:[]
 }
 
 =========================================================
 */
 
 
+/**
+ * Convierte un JSON de Kinovea 2024.1.1
+ * al modelo interno del analizador.
+ *
+ * @param {Object} json
+ * @returns {Object}
+ */
 function parseKinoveaJSON(json) {
 
+
     if (!json) {
-        throw new Error("JSON vacío");
+        throw new Error(
+            "JSON vacío"
+        );
     }
 
 
-    /*
-    -----------------------------------------------------
-    Validación estructura Kinovea
-    -----------------------------------------------------
-    */
 
     if (!json.metadata) {
         throw new Error(
-            "JSON no contiene metadata de Kinovea"
+            "No existe metadata en el archivo Kinovea"
         );
     }
+
 
 
     if (!json.data) {
         throw new Error(
-            "JSON no contiene bloque data"
+            "No existe bloque data en el archivo Kinovea"
         );
     }
+
 
 
     const metadata = json.metadata;
@@ -61,9 +69,9 @@ function parseKinoveaJSON(json) {
 
 
     /*
-    -----------------------------------------------------
-    Información general
-    -----------------------------------------------------
+    =====================================================
+    Información del vídeo
+    =====================================================
     */
 
 
@@ -71,6 +79,7 @@ function parseKinoveaJSON(json) {
         metadata.captureFramerate ??
         metadata.userFramerate ??
         null;
+
 
 
     const imageSize =
@@ -83,21 +92,23 @@ function parseKinoveaJSON(json) {
 
 
     /*
-    -----------------------------------------------------
-    Localizar series temporales
-    -----------------------------------------------------
+    =====================================================
+    Timeseries de Kinovea
+    =====================================================
     */
 
 
     const timeseries =
-        data.timeseries ??
-        [];
+        Array.isArray(data.timeseries)
+            ? data.timeseries
+            : [];
 
 
-    if (!Array.isArray(timeseries)) {
+
+    if (timeseries.length === 0) {
 
         throw new Error(
-            "Kinovea data.timeseries no es válido"
+            "El archivo no contiene timeseries de marcadores"
         );
 
     }
@@ -105,73 +116,152 @@ function parseKinoveaJSON(json) {
 
 
     /*
-    -----------------------------------------------------
-    Lista de marcadores
-    -----------------------------------------------------
+    =====================================================
+    Validación de marcadores
+    =====================================================
     */
 
 
-    const markers =
-        timeseries.map(series => series.name);
+    timeseries.forEach(series => {
+
+
+        if (!series.name) {
+
+            throw new Error(
+                "Existe una serie sin nombre"
+            );
+
+        }
+
+
+
+        if (!Array.isArray(series.time)) {
+
+            throw new Error(
+                `El marcador ${series.name} no contiene tiempos`
+            );
+
+        }
+
+
+
+        if (!Array.isArray(series.x) ||
+            !Array.isArray(series.y)) {
+
+
+            throw new Error(
+                `El marcador ${series.name} no contiene coordenadas x/y`
+            );
+
+        }
+
+
+    });
 
 
 
     /*
-    -----------------------------------------------------
-    Crear frames
-    -----------------------------------------------------
+    =====================================================
+    Lista de marcadores
+    =====================================================
+    */
+
+
+    const markers =
+        timeseries.map(
+            series => series.name
+        );
+
+
+
+    /*
+    =====================================================
+    Número de frames
+    =====================================================
+    */
+
+
+    const frameCount =
+        Math.max(
+            ...timeseries.map(
+                series => series.time.length
+            )
+        );
+
+
+
+    /*
+    =====================================================
+    Construcción de frames
+    =====================================================
     */
 
 
     const frames = [];
 
 
-    if (timeseries.length > 0) {
+
+    for (
+        let i = 0;
+        i < frameCount;
+        i++
+    ) {
 
 
-        const frameCount =
-            timeseries[0].time.length;
+        let frameTime = null;
 
 
 
-        for (let i = 0; i < frameCount; i++) {
+        const landmarks = {};
 
 
-            const frame = {
 
-                index:i,
+        timeseries.forEach(series => {
 
-                time:
-                    timeseries[0].time[i] ?? null,
 
-                landmarks:{}
+
+            if (
+                series.time[i] !== undefined &&
+                frameTime === null
+            ) {
+
+                frameTime =
+                    series.time[i];
+
+            }
+
+
+
+            landmarks[series.name] = {
+
+
+                x:
+                    series.x[i] ??
+                    null,
+
+
+                y:
+                    series.y[i] ??
+                    null
 
             };
 
 
-
-            timeseries.forEach(series => {
-
-
-                frame.landmarks[series.name] = {
-
-                    x:
-                        series.x?.[i] ?? null,
-
-                    y:
-                        series.y?.[i] ?? null
-
-                };
-
-
-            });
+        });
 
 
 
-            frames.push(frame);
+        frames.push({
+
+            index:i,
+
+            time:
+                frameTime,
 
 
-        }
+            landmarks
+
+        });
 
 
     }
@@ -179,28 +269,23 @@ function parseKinoveaJSON(json) {
 
 
     /*
-    -----------------------------------------------------
-    Duración
-    -----------------------------------------------------
+    =====================================================
+    Duración total
+    =====================================================
     */
 
 
-    let duration = 0;
-
-
-    if (frames.length > 0) {
-
-        duration =
-            frames[frames.length - 1].time;
-
-    }
+    const duration =
+        frames.length > 0
+            ? frames[frames.length - 1].time
+            : 0;
 
 
 
     /*
-    -----------------------------------------------------
+    =====================================================
     Resultado estándar
-    -----------------------------------------------------
+    =====================================================
     */
 
 
@@ -212,23 +297,92 @@ function parseKinoveaJSON(json) {
             "Kinovea",
 
 
+
+        originalFilename:
+            metadata.originalFilename ??
+            null,
+
+
+
         fps,
+
 
 
         duration,
 
 
+
         imageSize,
+
 
 
         markers,
 
 
-        frameCount:
-            frames.length,
+
+        frameCount,
+
 
 
         frames
+
+    };
+
+}
+
+
+
+
+
+/**
+ * Devuelve información resumida
+ * para mostrar en la interfaz.
+ *
+ * @param {Object} json
+ * @returns {Object}
+ */
+function getKinoveaSummary(json) {
+
+
+    const data =
+        parseKinoveaJSON(json);
+
+
+
+    return {
+
+
+        source:
+            data.source,
+
+
+        filename:
+            data.originalFilename,
+
+
+        fps:
+            data.fps,
+
+
+        width:
+            data.imageSize.width,
+
+
+        height:
+            data.imageSize.height,
+
+
+        markers:
+            data.markers.length,
+
+
+        frameCount:
+            data.frameCount,
+
+
+        duration:
+            data.duration
+
 
     };
 
