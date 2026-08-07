@@ -399,9 +399,9 @@ if (
 
 
                     biomechanicalMeasurements:
-                        extractBiomechanicalMeasurements(
-                            kinoveaData.frames
-                        ),
+                      Biomechanics.analyzeBiomechanics(
+    kinoveaData.frames
+)
 
 
 
