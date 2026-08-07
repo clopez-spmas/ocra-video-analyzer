@@ -337,7 +337,15 @@ function readKinoveaJSON(file) {
                         json
                     );
 
+if (
+    typeof createMarkerMappingUI === "function"
+) {
 
+    createMarkerMappingUI(
+        kinoveaData.markers
+    );
+
+}
 
 
 
