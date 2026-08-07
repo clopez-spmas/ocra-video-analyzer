@@ -2,191 +2,234 @@
 
 /*
 =========================================================
-OCRA Video Analyzer
-Kinovea JSON Provider
-=========================================================
+Kinovea JSON Converter
+Compatible with Kinovea 2024.1.1
 
 Responsabilidades:
+- Leer JSON exportado por Kinovea.
+- Convertir timeseries a frames.
+- Mantener tiempos reales.
+- Crear modelo interno independiente de Kinovea.
 
-- Leer el JSON exportado por Kinovea.
-- Detectar automáticamente la estructura.
-- Obtener la lista de frames.
-- Calcular información básica del archivo.
-- Detectar automáticamente los marcadores existentes.
+Entrada:
+Kinovea JSON 2024.1.1
 
-NO realiza cálculos biomecánicos.
-NO calcula OCRA.
-NO cuenta movimientos.
+Salida:
+{
+    source,
+    fps,
+    duration,
+    imageSize,
+    markers,
+    frames[]
+}
 
 =========================================================
 */
 
-const Kinovea = {
 
-    //-----------------------------------------------------
-    // Obtener lista de frames
-    //-----------------------------------------------------
+function parseKinoveaJSON(json) {
 
-    getFrames(json) {
+    if (!json) {
+        throw new Error("JSON vacío");
+    }
 
-        // Formato 1
 
-        if (Array.isArray(json)) {
+    /*
+    -----------------------------------------------------
+    Validación estructura Kinovea
+    -----------------------------------------------------
+    */
 
-            return json;
-
-        }
-
-        // Formato 2
-
-        if (
-            json.Frames &&
-            Array.isArray(json.Frames)
-        ) {
-
-            return json.Frames;
-
-        }
-
-        // Formato 3
-
-        if (
-            json.frames &&
-            Array.isArray(json.frames)
-        ) {
-
-            return json.frames;
-
-        }
-
+    if (!json.metadata) {
         throw new Error(
-            "Formato JSON de Kinovea no reconocido."
+            "JSON no contiene metadata de Kinovea"
         );
+    }
 
-    },
 
-    //-----------------------------------------------------
-    // Analizar JSON
-    //-----------------------------------------------------
+    if (!json.data) {
+        throw new Error(
+            "JSON no contiene bloque data"
+        );
+    }
 
-    parse(json) {
 
-        const frames =
-            this.getFrames(json);
+    const metadata = json.metadata;
+    const data = json.data;
 
-        return {
 
-            frames: frames,
 
-            frameCount:
-                frames.length,
+    /*
+    -----------------------------------------------------
+    Información general
+    -----------------------------------------------------
+    */
 
-            landmarkCount:
-                this.countLandmarks(frames),
 
-            markerCount:
-                this.getMarkerCount(json),
+    const fps =
+        metadata.captureFramerate ??
+        metadata.userFramerate ??
+        null;
 
-            markers:
-                this.getMarkers(json)
 
+    const imageSize =
+        metadata.imageSize ??
+        {
+            width:null,
+            height:null
         };
 
-    },
 
-    //-----------------------------------------------------
-    // Contar landmarks
-    //-----------------------------------------------------
 
-    countLandmarks(frames) {
+    /*
+    -----------------------------------------------------
+    Localizar series temporales
+    -----------------------------------------------------
+    */
 
-        let total = 0;
 
-        for (const frame of frames) {
+    const timeseries =
+        data.timeseries ??
+        [];
 
-            const points =
-                frame.Points ||
-                frame.points ||
-                frame.Landmarks ||
-                frame.landmarks ||
-                [];
 
-            total += points.length;
+    if (!Array.isArray(timeseries)) {
 
-        }
-
-        return total;
-
-    },
-
-    //-----------------------------------------------------
-    // Obtener lista de marcadores
-    //-----------------------------------------------------
-
-    getMarkers(json) {
-
-        const frames =
-            this.getFrames(json);
-
-        const markers =
-            new Map();
-
-        for (const frame of frames) {
-
-            const points =
-                frame.Points ||
-                frame.points ||
-                frame.Landmarks ||
-                frame.landmarks ||
-                [];
-
-            points.forEach((point, index) => {
-
-                const id =
-                    point.id ??
-                    point.ID ??
-                    point.name ??
-                    point.Name ??
-                    ("Marcador " + (index + 1));
-
-                if (!markers.has(id)) {
-
-                    markers.set(id, {
-
-                        id: id,
-
-                        name:
-                            typeof id === "string"
-                                ? id
-                                : "Marcador " + id,
-
-                        frames: 1
-
-                    });
-
-                }
-                else {
-
-                    markers.get(id).frames++;
-
-                }
-
-            });
-
-        }
-
-        return Array.from(markers.values());
-
-    },
-
-    //-----------------------------------------------------
-    // Número de marcadores
-    //-----------------------------------------------------
-
-    getMarkerCount(json) {
-
-        return this.getMarkers(json).length;
+        throw new Error(
+            "Kinovea data.timeseries no es válido"
+        );
 
     }
 
-};
+
+
+    /*
+    -----------------------------------------------------
+    Lista de marcadores
+    -----------------------------------------------------
+    */
+
+
+    const markers =
+        timeseries.map(series => series.name);
+
+
+
+    /*
+    -----------------------------------------------------
+    Crear frames
+    -----------------------------------------------------
+    */
+
+
+    const frames = [];
+
+
+    if (timeseries.length > 0) {
+
+
+        const frameCount =
+            timeseries[0].time.length;
+
+
+
+        for (let i = 0; i < frameCount; i++) {
+
+
+            const frame = {
+
+                index:i,
+
+                time:
+                    timeseries[0].time[i] ?? null,
+
+                landmarks:{}
+
+            };
+
+
+
+            timeseries.forEach(series => {
+
+
+                frame.landmarks[series.name] = {
+
+                    x:
+                        series.x?.[i] ?? null,
+
+                    y:
+                        series.y?.[i] ?? null
+
+                };
+
+
+            });
+
+
+
+            frames.push(frame);
+
+
+        }
+
+
+    }
+
+
+
+    /*
+    -----------------------------------------------------
+    Duración
+    -----------------------------------------------------
+    */
+
+
+    let duration = 0;
+
+
+    if (frames.length > 0) {
+
+        duration =
+            frames[frames.length - 1].time;
+
+    }
+
+
+
+    /*
+    -----------------------------------------------------
+    Resultado estándar
+    -----------------------------------------------------
+    */
+
+
+    return {
+
+
+        source:
+            metadata.producer ??
+            "Kinovea",
+
+
+        fps,
+
+
+        duration,
+
+
+        imageSize,
+
+
+        markers,
+
+
+        frameCount:
+            frames.length,
+
+
+        frames
+
+    };
+
+}
