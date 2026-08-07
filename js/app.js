@@ -1,176 +1,230 @@
-
 "use strict";
 
 /*
 =========================================================
 OCRA Video Analyzer
 Main Application Controller
-=========================================================
 
 Responsabilidades:
 - Seleccionar archivo JSON de Kinovea.
 - Leer y validar JSON.
-- Convertir datos al modelo interno.
+- Convertir mediante kinovea.js.
 - Crear analysisResult.
-- Convertir ángulos del motor biomecánico
-  en BiomechanicalMeasurement para visualización.
+- Preparar datos para:
+    - análisis angular
+    - postura
+    - movimientos
+    - métricas
+    - evaluación OCRA
+
 =========================================================
 */
+
 
 let analysisResult = null;
 
 
-document.addEventListener("DOMContentLoaded", () => {
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
 
-    const fileInput =
-        document.getElementById("jsonFile");
-
-
-    const analyzeButton =
-        document.getElementById("analyzeButton");
-
-
-    const status =
-        document.getElementById("status");
-
-
-    const fileName =
-        document.getElementById("fileName");
-
-
-    const fileSize =
-        document.getElementById("fileSize");
-
-
-    const frameCount =
-        document.getElementById("frameCount");
-
-
-    const landmarkCount =
-        document.getElementById("landmarkCount");
-
-
-    const fps =
-        document.getElementById("fps");
-
-
-    const duration =
-        document.getElementById("duration");
-
-
-    let selectedFile = null;
+        const fileInput =
+            document.getElementById("jsonFile");
 
 
 
-    fileInput.addEventListener(
-        "change",
-        (event) => {
+        const analyzeButton =
+            document.getElementById("analyzeButton");
 
 
-            if (!event.target.files.length) {
+
+        const status =
+            document.getElementById("status");
 
 
-                selectedFile = null;
 
-                analyzeButton.disabled = true;
+        const fileName =
+            document.getElementById("fileName");
+
+
+
+        const fileSize =
+            document.getElementById("fileSize");
+
+
+
+        const frameCount =
+            document.getElementById("frameCount");
+
+
+
+        const landmarkCount =
+            document.getElementById("landmarkCount");
+
+
+
+        const fps =
+            document.getElementById("fps");
+
+
+
+        const duration =
+            document.getElementById("duration");
+
+
+
+        let selectedFile = null;
+
+
+
+        fileInput.addEventListener(
+            "change",
+            (event) => {
+
+
+                if (
+                    !event.target.files.length
+                ) {
+
+
+                    selectedFile = null;
+
+
+                    analyzeButton.disabled =
+                        true;
+
+
+                    status.textContent =
+                        "Esperando un archivo JSON...";
+
+
+                    resetStatistics();
+
+
+                    return;
+
+                }
+
+
+
+                selectedFile =
+                    event.target.files[0];
+
+
+
+                fileName.textContent =
+                    selectedFile.name;
+
+
+
+                fileSize.textContent =
+                    (
+                        selectedFile.size / 1024
+                    ).toFixed(2)
+                    +
+                    " KB";
+
 
 
                 status.textContent =
-                    "Esperando un archivo JSON...";
+                    "Archivo cargado correctamente.";
 
 
-                resetStatistics();
 
+                analyzeButton.disabled =
+                    false;
 
-                return;
 
             }
-
-
-            selectedFile =
-                event.target.files[0];
-
-
-            fileName.textContent =
-                selectedFile.name;
-
-
-            fileSize.textContent =
-                (
-                    selectedFile.size / 1024
-                ).toFixed(2)
-                +
-                " KB";
-
-
-            status.textContent =
-                "Archivo cargado correctamente.";
-
-
-            analyzeButton.disabled =
-                false;
-
-
-        }
-    );
+        );
 
 
 
-    analyzeButton.addEventListener(
-        "click",
-        () => {
+
+        analyzeButton.addEventListener(
+            "click",
+            () => {
 
 
-            if (!selectedFile) {
+                if (!selectedFile) {
 
 
-                alert(
-                    "Seleccione primero un archivo JSON."
+                    alert(
+                        "Seleccione primero un archivo JSON."
+                    );
+
+
+                    return;
+
+                }
+
+
+
+                status.textContent =
+                    "Leyendo archivo...";
+
+
+
+                readKinoveaJSON(
+                    selectedFile
                 );
 
 
-                return;
-
             }
+        );
 
 
-            status.textContent =
-                "Leyendo archivo...";
 
 
-            readKinoveaJSON(selectedFile);
+
+        function resetStatistics() {
+
+
+            fileName.textContent =
+                "-";
+
+
+            fileSize.textContent =
+                "-";
+
+
+            frameCount.textContent =
+                "-";
+
+
+            landmarkCount.textContent =
+                "-";
+
+
+            fps.textContent =
+                "-";
+
+
+            duration.textContent =
+                "-";
 
 
         }
-    );
-
-
-
-    function resetStatistics() {
-
-
-        fileName.textContent = "-";
-
-        fileSize.textContent = "-";
-
-        frameCount.textContent = "-";
-
-        landmarkCount.textContent = "-";
-
-        fps.textContent = "-";
-
-        duration.textContent = "-";
 
 
     }
+);
 
 
-});
 
+
+
+/*
+=========================================================
+Lectura del JSON Kinovea
+=========================================================
+*/
 
 
 function readKinoveaJSON(file) {
+
 
 
     const reader =
@@ -178,11 +232,14 @@ function readKinoveaJSON(file) {
 
 
 
+
     reader.onload =
         (event) => {
 
 
+
             try {
+
 
 
                 const json =
@@ -191,7 +248,19 @@ function readKinoveaJSON(file) {
                     );
 
 
-                if (typeof Kinovea === "undefined") {
+
+
+                /*
+                -----------------------------------------
+                Verificar conversor Kinovea
+                -----------------------------------------
+                */
+
+
+                if (
+                    typeof parseKinoveaJSON !==
+                    "function"
+                ) {
 
 
                     throw new Error(
@@ -202,20 +271,34 @@ function readKinoveaJSON(file) {
                 }
 
 
-                const frames =
-                    Kinovea.parse(json);
+
+
+
+                /*
+                -----------------------------------------
+                Conversión Kinovea 2024.1.1
+                -----------------------------------------
+                */
+
+
+                const kinoveaData =
+                    parseKinoveaJSON(
+                        json
+                    );
+
+
 
 
 
                 if (
-                    !Array.isArray(frames)
+                    !kinoveaData.frames
                     ||
-                    frames.length === 0
+                    kinoveaData.frames.length === 0
                 ) {
 
 
                     throw new Error(
-                        "El JSON no contiene frames válidos."
+                        "No se han encontrado frames válidos."
                     );
 
 
@@ -223,37 +306,62 @@ function readKinoveaJSON(file) {
 
 
 
+
+
+                /*
+                -----------------------------------------
+                Crear resultado interno
+                -----------------------------------------
+                */
+
+
                 analysisResult = {
 
 
+
                     metadata: {
+
 
                         fileName:
                             file.name,
 
 
                         created:
-                            new Date().toISOString()
+                            new Date()
+                                .toISOString()
+
 
                     },
 
 
-                    frames: frames,
+
+                    kinovea:
+                        kinoveaData,
+
+
+
+                    frames:
+                        kinoveaData.frames,
+
 
 
                     totalFrames:
-                        frames.length,
+                        kinoveaData.frameCount,
+
 
 
                     biomechanicalMeasurements:
                         extractBiomechanicalMeasurements(
-                            frames
+                            kinoveaData.frames
                         ),
+
 
 
                     angles: [],
 
+
                     movements: [],
+
 
                     ocra: null
 
@@ -262,74 +370,94 @@ function readKinoveaJSON(file) {
 
 
 
-                let totalLandmarks = 0;
 
 
-                frames.forEach(
-                    frame => {
+                /*
+                -----------------------------------------
+                Estadísticas
+                -----------------------------------------
+                */
 
 
-                        if (
-                            Array.isArray(
-                                frame.landmarks
-                            )
-                        ) {
-
-
-                            totalLandmarks +=
-                                frame.landmarks.length;
-
-
-                        }
-
-
-                    }
-                );
+                const totalLandmarks =
+                    countMarkers(
+                        kinoveaData.frames
+                    );
 
 
 
-                const timing =
-                    calculateTiming(frames);
 
 
-
-                document.getElementById("fileName")
-                    .textContent =
+                document.getElementById(
+                    "fileName"
+                )
+                .textContent =
                     file.name;
 
 
 
-                document.getElementById("frameCount")
-                    .textContent =
-                    frames.length;
+
+
+                document.getElementById(
+                    "frameCount"
+                )
+                .textContent =
+                    kinoveaData.frameCount;
 
 
 
-                document.getElementById("landmarkCount")
-                    .textContent =
+
+
+                document.getElementById(
+                    "landmarkCount"
+                )
+                .textContent =
                     totalLandmarks;
 
 
 
-                document.getElementById("fps")
-                    .textContent =
-                    timing.fps;
+
+
+                document.getElementById(
+                    "fps"
+                )
+                .textContent =
+                    kinoveaData.fps
+                    ?
+                    kinoveaData.fps.toFixed(2)
+                    :
+                    "-";
 
 
 
-                document.getElementById("duration")
-                    .textContent =
-                    timing.duration;
+
+
+                document.getElementById(
+                    "duration"
+                )
+                .textContent =
+                    formatDuration(
+                        kinoveaData.duration
+                    );
 
 
 
-                document.getElementById("status")
-                    .textContent =
-                    "✔ JSON procesado correctamente.";
+
+
+                document.getElementById(
+                    "status"
+                )
+                .textContent =
+                    "✔ JSON Kinovea procesado correctamente.";
+
+
+
+
 
                 showBiomechanicalResults(
                     analysisResult
                 );
+
 
 
                 showPostureResults(
@@ -337,9 +465,11 @@ function readKinoveaJSON(file) {
                 );
 
 
+
                 showMovementResults(
                     analysisResult
                 );
+
 
 
                 showAnalysisMetrics(
@@ -347,9 +477,13 @@ function readKinoveaJSON(file) {
                 );
 
 
+
                 showOcraEvaluation(
                     analysisResult
                 );
+
+
+
 
 
                 console.log(
@@ -358,17 +492,22 @@ function readKinoveaJSON(file) {
                 );
 
 
+
             }
 
             catch(error) {
 
 
-                console.error(error);
+                console.error(
+                    error
+                );
 
 
-                document.getElementById("status")
-                    .textContent =
-                    "❌ Error leyendo el archivo: "
+                document.getElementById(
+                    "status"
+                )
+                .textContent =
+                    "❌ Error leyendo archivo: "
                     +
                     error.message;
 
@@ -379,12 +518,11 @@ function readKinoveaJSON(file) {
         };
 
 
+
     reader.readAsText(file);
 
 
 }
-
-
 
 /*
 =========================================================
@@ -404,9 +542,7 @@ function extractBiomechanicalMeasurements(frames) {
         frame => {
 
 
-            if (
-                !frame.angles
-            ) {
+            if (!frame.angles) {
 
                 return;
 
@@ -416,14 +552,14 @@ function extractBiomechanicalMeasurements(frames) {
 
             Object.entries(
                 frame.angles
-            ).forEach(
+            )
+            .forEach(
                 ([name, value]) => {
 
 
 
                     if (
-                        value === null
-                        ||
+                        value === null ||
                         value === undefined
                     ) {
 
@@ -436,6 +572,7 @@ function extractBiomechanicalMeasurements(frames) {
                     let side = null;
 
 
+
                     if (
                         name.includes("left")
                     ) {
@@ -443,6 +580,7 @@ function extractBiomechanicalMeasurements(frames) {
                         side = "left";
 
                     }
+
 
 
                     if (
@@ -455,48 +593,61 @@ function extractBiomechanicalMeasurements(frames) {
 
 
 
+
+
                     measurements.push({
 
-                        name: name,
+
+                        name,
 
 
-                        value: Number(value),
+                        value:
+                            Number(value),
 
 
-                        unit: "deg",
+
+                        unit:
+                            "deg",
 
 
-                        category: null,
+
+                        category:
+                            null,
 
 
-                        side: side,
+
+                        side,
+
 
 
                         body_region:
                             "upper_limb",
 
 
+
                         frame_index:
-                            frame.frameIndex
-                            ??
-                            frame.frame_index
-                            ??
-                            null,
+                            frame.index,
+
 
 
                         timestamp:
-                            frame.timestamp
-                            ??
+                            frame.time,
+
+
+
+                        valid:
+                            true,
+
+
+
+                        confidence:
                             null,
 
 
-                        valid: true,
 
+                        reason:
+                            null,
 
-                        confidence: null,
-
-
-                        reason: null,
 
 
                         calculation_method:
@@ -504,6 +655,7 @@ function extractBiomechanicalMeasurements(frames) {
 
 
                     });
+
 
 
                 }
@@ -522,97 +674,104 @@ function extractBiomechanicalMeasurements(frames) {
 
 
 
+
+
 /*
 =========================================================
-Cálculo FPS y duración
+Cuenta total de marcadores
 =========================================================
 */
 
 
-function calculateTiming(frames) {
+function countMarkers(frames) {
 
 
-    if (frames.length < 2) {
+    if (
+        !frames ||
+        frames.length === 0
+    ) {
 
-
-        return {
-
-            fps: "-",
-
-            duration: "-"
-
-        };
-
+        return 0;
 
     }
 
 
 
-    let t0 =
-        frames[0].timestamp || 0;
-
-
-    let t1 =
-        frames[
-            frames.length - 1
-        ].timestamp || 0;
+    const firstFrame =
+        frames[0];
 
 
 
-    let seconds =
-        t1 - t0;
+    if (
+        !firstFrame.landmarks
+    ) {
 
-
-
-    if (seconds > 100) {
-
-        seconds =
-            seconds / 1000;
+        return 0;
 
     }
 
 
 
-    if (seconds <= 0) {
-
-
-        return {
-
-            fps: "-",
-
-            duration: "-"
-
-        };
-
-
-    }
-
-
-
-    return {
-
-
-        fps:
-            (
-                frames.length / seconds
-            ).toFixed(2),
-
-
-        duration:
-
-            Math.floor(seconds / 60)
-            +
-            " min "
-            +
-            Math.floor(seconds % 60)
-            +
-            " s"
-
-
-    };
+    return Object.keys(
+        firstFrame.landmarks
+    ).length;
 
 
 }
+
+
+
+
+
+/*
+=========================================================
+Formato duración
+=========================================================
+*/
+
+
+function formatDuration(seconds) {
+
+
+    if (
+        seconds === null ||
+        seconds === undefined
+    ) {
+
+        return "-";
+
+    }
+
+
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+
+
+    const secs =
+        Math.floor(
+            seconds % 60
+        );
+
+
+
+    return (
+        minutes
+        +
+        " min "
+        +
+        secs
+        +
+        " s"
+    );
+
+
+}
+
+
 
 
 
@@ -632,6 +791,7 @@ function showBiomechanicalResults(result) {
         );
 
 
+
     if (!container) {
 
         return;
@@ -646,8 +806,7 @@ function showBiomechanicalResults(result) {
 
 
     if (
-        !measurements
-        ||
+        !measurements ||
         measurements.length === 0
     ) {
 
@@ -658,39 +817,45 @@ function showBiomechanicalResults(result) {
 
         return;
 
+
     }
+
+
 
 
 
     let html = `
 
-        <table>
+    <table>
 
-            <thead>
+        <thead>
 
-                <tr>
+            <tr>
 
-                    <th>Frame</th>
+                <th>Frame</th>
 
-                    <th>Medición</th>
+                <th>Medición</th>
 
-                    <th>Valor</th>
+                <th>Valor</th>
 
-                    <th>Unidad</th>
+                <th>Unidad</th>
 
-                    <th>Lado</th>
+                <th>Lado</th>
 
-                    <th>Región</th>
+                <th>Región</th>
 
-                    <th>Tiempo</th>
+                <th>Tiempo</th>
 
-                </tr>
+            </tr>
 
-            </thead>
+        </thead>
 
-            <tbody>
+
+        <tbody>
 
     `;
+
+
 
 
 
@@ -700,58 +865,45 @@ function showBiomechanicalResults(result) {
 
             html += `
 
-                <tr>
-
-                    <td>
-                        ${
-                            measurement.frame_index
-                        }
-                    </td>
+            <tr>
 
 
-                    <td>
-                        ${
-                            measurement.name
-                        }
-                    </td>
+                <td>
+                    ${measurement.frame_index}
+                </td>
 
 
-                    <td>
-                        ${
-                            measurement.value.toFixed(2)
-                        }
-                    </td>
+                <td>
+                    ${measurement.name}
+                </td>
 
 
-                    <td>
-                        ${
-                            measurement.unit
-                        }
-                    </td>
+                <td>
+                    ${measurement.value.toFixed(2)}
+                </td>
 
 
-                    <td>
-                        ${
-                            measurement.side ?? "-"
-                        }
-                    </td>
+                <td>
+                    ${measurement.unit}
+                </td>
 
 
-                    <td>
-                        ${
-                            measurement.body_region
-                        }
-                    </td>
+                <td>
+                    ${measurement.side ?? "-"}
+                </td>
 
 
-                    <td>
-                        ${
-                            measurement.timestamp ?? "-"
-                        }
-                    </td>
+                <td>
+                    ${measurement.body_region}
+                </td>
 
 
-                </tr>
+                <td>
+                    ${measurement.timestamp ?? "-"}
+                </td>
+
+
+            </tr>
 
             `;
 
@@ -761,11 +913,13 @@ function showBiomechanicalResults(result) {
 
 
 
+
+
     html += `
 
-            </tbody>
+        </tbody>
 
-        </table>
+    </table>
 
     `;
 
@@ -776,6 +930,8 @@ function showBiomechanicalResults(result) {
 
 
 }
+
+
 
 
 
@@ -795,14 +951,19 @@ function showPostureResults(result) {
         );
 
 
+
     if (element) {
+
 
         element.textContent =
             "Pendiente de integración con PostureAnalyzer.";
 
     }
 
+
 }
+
+
 
 
 
@@ -815,14 +976,19 @@ function showMovementResults(result) {
         );
 
 
+
     if (element) {
+
 
         element.textContent =
             "Pendiente de integración con MovementManager.";
 
     }
 
+
 }
+
+
 
 
 
@@ -835,14 +1001,19 @@ function showAnalysisMetrics(result) {
         );
 
 
+
     if (element) {
+
 
         element.textContent =
             "Pendiente de cálculo de métricas.";
 
     }
 
+
 }
+
+
 
 
 
@@ -855,11 +1026,14 @@ function showOcraEvaluation(result) {
         );
 
 
+
     if (element) {
+
 
         element.textContent =
             "Pendiente de evaluación OCRA.";
 
     }
+
 
 }
