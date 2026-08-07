@@ -2,66 +2,101 @@
 
 /*
 =========================================================
+OCRA Video Analyzer
 Kinovea JSON Provider
 =========================================================
 
-Responsabilidad:
+Responsabilidades:
 
 - Leer el JSON exportado por Kinovea.
 - Detectar automáticamente la estructura.
 - Obtener la lista de frames.
 - Calcular información básica del archivo.
+- Detectar automáticamente los marcadores existentes.
 
 NO realiza cálculos biomecánicos.
 NO calcula OCRA.
 NO cuenta movimientos.
 
+=========================================================
 */
 
 const Kinovea = {
 
-    parse(json) {
+    //-----------------------------------------------------
+    // Obtener lista de frames
+    //-----------------------------------------------------
 
-        let frames = [];
+    getFrames(json) {
 
         // Formato 1
+
         if (Array.isArray(json)) {
 
-            frames = json;
+            return json;
 
         }
 
         // Formato 2
-        else if (json.Frames && Array.isArray(json.Frames)) {
 
-            frames = json.Frames;
+        if (
+            json.Frames &&
+            Array.isArray(json.Frames)
+        ) {
+
+            return json.Frames;
 
         }
 
         // Formato 3
-        else if (json.frames && Array.isArray(json.frames)) {
 
-            frames = json.frames;
+        if (
+            json.frames &&
+            Array.isArray(json.frames)
+        ) {
 
-        }
-
-        else {
-
-            throw new Error("Formato JSON de Kinovea no reconocido.");
+            return json.frames;
 
         }
+
+        throw new Error(
+            "Formato JSON de Kinovea no reconocido."
+        );
+
+    },
+
+    //-----------------------------------------------------
+    // Analizar JSON
+    //-----------------------------------------------------
+
+    parse(json) {
+
+        const frames =
+            this.getFrames(json);
 
         return {
 
             frames: frames,
 
-            frameCount: frames.length,
+            frameCount:
+                frames.length,
 
-            landmarkCount: this.countLandmarks(frames)
+            landmarkCount:
+                this.countLandmarks(frames),
+
+            markerCount:
+                this.getMarkerCount(json),
+
+            markers:
+                this.getMarkers(json)
 
         };
 
     },
+
+    //-----------------------------------------------------
+    // Contar landmarks
+    //-----------------------------------------------------
 
     countLandmarks(frames) {
 
@@ -81,6 +116,76 @@ const Kinovea = {
         }
 
         return total;
+
+    },
+
+    //-----------------------------------------------------
+    // Obtener lista de marcadores
+    //-----------------------------------------------------
+
+    getMarkers(json) {
+
+        const frames =
+            this.getFrames(json);
+
+        const markers =
+            new Map();
+
+        for (const frame of frames) {
+
+            const points =
+                frame.Points ||
+                frame.points ||
+                frame.Landmarks ||
+                frame.landmarks ||
+                [];
+
+            points.forEach((point, index) => {
+
+                const id =
+                    point.id ??
+                    point.ID ??
+                    point.name ??
+                    point.Name ??
+                    ("Marcador " + (index + 1));
+
+                if (!markers.has(id)) {
+
+                    markers.set(id, {
+
+                        id: id,
+
+                        name:
+                            typeof id === "string"
+                                ? id
+                                : "Marcador " + id,
+
+                        frames: 1
+
+                    });
+
+                }
+                else {
+
+                    markers.get(id).frames++;
+
+                }
+
+            });
+
+        }
+
+        return Array.from(markers.values());
+
+    },
+
+    //-----------------------------------------------------
+    // Número de marcadores
+    //-----------------------------------------------------
+
+    getMarkerCount(json) {
+
+        return this.getMarkers(json).length;
 
     }
 
