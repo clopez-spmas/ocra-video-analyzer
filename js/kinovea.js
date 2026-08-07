@@ -5,66 +5,81 @@
 KINOVEA JSON CONVERTER
 Compatible con Kinovea 2024.1.1
 
-Responsabilidades:
-- Convertir JSON exportado por Kinovea.
-- Transformar timeseries en frames.
-- Mantener tiempos reales.
-- Crear un modelo independiente de Kinovea.
+Formato soportado:
 
-Entrada:
-Kinovea JSON 2024.1.1
+data.timeseries[]
+    name
+    time[]
+    data["0"][
+        [x,y],
+        [x,y],
+        ...
+    ]
 
 Salida:
+
 {
     source,
     fps,
     duration,
-    imageSize,
     markers,
-    frameCount,
-    frames:[]
+    frames:[
+        {
+            index,
+            time,
+            landmarks:{
+                "Marcador 1":{
+                    x,
+                    y
+                }
+            }
+        }
+    ]
 }
 
 =========================================================
 */
 
 
-/**
- * Convierte un JSON de Kinovea 2024.1.1
- * al modelo interno del analizador.
- *
- * @param {Object} json
- * @returns {Object}
- */
 function parseKinoveaJSON(json) {
 
 
     if (!json) {
+
         throw new Error(
             "JSON vacío"
         );
+
     }
 
 
 
     if (!json.metadata) {
+
         throw new Error(
-            "No existe metadata en el archivo Kinovea"
+            "No existe metadata de Kinovea"
         );
+
     }
 
 
 
     if (!json.data) {
+
         throw new Error(
-            "No existe bloque data en el archivo Kinovea"
+            "No existe bloque data"
         );
+
     }
 
 
 
-    const metadata = json.metadata;
-    const data = json.data;
+    const metadata =
+        json.metadata;
+
+
+    const data =
+        json.data;
 
 
 
@@ -91,86 +106,54 @@ function parseKinoveaJSON(json) {
 
 
 
+
+
     /*
     =====================================================
-    Timeseries de Kinovea
+    Obtener series temporales
     =====================================================
     */
 
 
     const timeseries =
-        Array.isArray(data.timeseries)
-            ? data.timeseries
-            : [];
+        Array.isArray(
+            data.timeseries
+        )
+        ?
+        data.timeseries
+        :
+        [];
+
 
 
 
     if (timeseries.length === 0) {
 
+
         throw new Error(
-            "El archivo no contiene timeseries de marcadores"
+            "No existen timeseries en el JSON"
         );
+
 
     }
 
 
 
-    /*
-    =====================================================
-    Validación de marcadores
-    =====================================================
-    */
-
-
-    timeseries.forEach(series => {
-
-
-        if (!series.name) {
-
-            throw new Error(
-                "Existe una serie sin nombre"
-            );
-
-        }
-
-
-
-        if (!Array.isArray(series.time)) {
-
-            throw new Error(
-                `El marcador ${series.name} no contiene tiempos`
-            );
-
-        }
-
-
-
-        if (!Array.isArray(series.x) ||
-            !Array.isArray(series.y)) {
-
-
-            throw new Error(
-                `El marcador ${series.name} no contiene coordenadas x/y`
-            );
-
-        }
-
-
-    });
-
 
 
     /*
     =====================================================
-    Lista de marcadores
+    Marcadores
     =====================================================
     */
 
 
     const markers =
         timeseries.map(
-            series => series.name
+            item => item.name
         );
+
+
 
 
 
@@ -184,9 +167,16 @@ function parseKinoveaJSON(json) {
     const frameCount =
         Math.max(
             ...timeseries.map(
-                series => series.time.length
+                series =>
+                    series.time
+                    ?
+                    series.time.length
+                    :
+                    0
             )
         );
+
+
 
 
 
@@ -201,59 +191,157 @@ function parseKinoveaJSON(json) {
 
 
 
+
     for (
-        let i = 0;
-        i < frameCount;
-        i++
+        let frameIndex = 0;
+        frameIndex < frameCount;
+        frameIndex++
     ) {
-
-
-        let frameTime = null;
-
 
 
         const landmarks = {};
 
 
 
-        timeseries.forEach(series => {
+        let frameTime = null;
 
 
 
-            if (
-                series.time[i] !== undefined &&
-                frameTime === null
-            ) {
 
-                frameTime =
-                    series.time[i];
+        timeseries.forEach(
+            series => {
+
+
+
+                /*
+                -----------------------------------------
+                Tiempo
+                -----------------------------------------
+                */
+
+
+                if (
+                    frameTime === null &&
+                    series.time &&
+                    series.time[frameIndex]
+                    !== undefined
+                ) {
+
+                    frameTime =
+                        series.time[frameIndex];
+
+                }
+
+
+
+
+
+                let point = null;
+
+
+
+                /*
+                -----------------------------------------
+                Formato Kinovea 2024.1.1
+                data["0"][frame]
+                -----------------------------------------
+                */
+
+
+                if (
+                    series.data &&
+                    series.data["0"] &&
+                    series.data["0"][frameIndex]
+                ) {
+
+
+                    point =
+                        series.data["0"]
+                        [frameIndex];
+
+
+                }
+
+
+
+
+                /*
+                -----------------------------------------
+                Compatibilidad formatos alternativos
+                -----------------------------------------
+                */
+
+
+                if (
+                    !point &&
+                    series.x &&
+                    series.y
+                ) {
+
+
+                    point = [
+
+                        series.x[frameIndex],
+
+                        series.y[frameIndex]
+
+                    ];
+
+
+                }
+
+
+
+
+
+                if (
+                    point &&
+                    point.length >= 2
+                ) {
+
+
+                    landmarks[
+                        series.name
+                    ] = {
+
+
+                        x:
+                            Number(point[0]),
+
+
+                        y:
+                            Number(point[1])
+
+
+                    };
+
+
+                }
+                else {
+
+
+                    landmarks[
+                        series.name
+                    ] = null;
+
+
+                }
+
+
+
 
             }
+        );
 
 
-
-            landmarks[series.name] = {
-
-
-                x:
-                    series.x[i] ??
-                    null,
-
-
-                y:
-                    series.y[i] ??
-                    null
-
-            };
-
-
-        });
 
 
 
         frames.push({
 
-            index:i,
+            index:
+                frameIndex,
+
 
             time:
                 frameTime,
@@ -261,30 +349,44 @@ function parseKinoveaJSON(json) {
 
             landmarks
 
+
         });
+
 
 
     }
 
 
 
+
+
+
+
     /*
     =====================================================
-    Duración total
+    Duración
     =====================================================
     */
 
 
     const duration =
         frames.length > 0
-            ? frames[frames.length - 1].time
-            : 0;
+        ?
+        frames[
+            frames.length - 1
+        ].time
+        :
+        0;
+
+
+
+
 
 
 
     /*
     =====================================================
-    Resultado estándar
+    Resultado final
     =====================================================
     */
 
@@ -293,13 +395,15 @@ function parseKinoveaJSON(json) {
 
 
         source:
-            metadata.producer ??
+            metadata.producer
+            ??
             "Kinovea",
 
 
 
         originalFilename:
-            metadata.originalFilename ??
+            metadata.originalFilename
+            ??
             null,
 
 
@@ -326,7 +430,9 @@ function parseKinoveaJSON(json) {
 
         frames
 
+
     };
+
 
 }
 
@@ -334,18 +440,22 @@ function parseKinoveaJSON(json) {
 
 
 
-/**
- * Devuelve información resumida
- * para mostrar en la interfaz.
- *
- * @param {Object} json
- * @returns {Object}
- */
+
+
+/*
+=========================================================
+Resumen Kinovea
+=========================================================
+*/
+
+
 function getKinoveaSummary(json) {
 
 
-    const data =
-        parseKinoveaJSON(json);
+    const result =
+        parseKinoveaJSON(
+            json
+        );
 
 
 
@@ -353,37 +463,42 @@ function getKinoveaSummary(json) {
 
 
         source:
-            data.source,
+            result.source,
 
 
         filename:
-            data.originalFilename,
+            result.originalFilename,
 
 
         fps:
-            data.fps,
+            result.fps,
 
 
-        width:
-            data.imageSize.width,
+        resolution:
+            result.imageSize.width
+            +
+            "x"
+            +
+            result.imageSize.height,
 
-
-        height:
-            data.imageSize.height,
 
 
         markers:
-            data.markers.length,
+            result.markers.length,
 
 
-        frameCount:
-            data.frameCount,
+
+        frames:
+            result.frameCount,
+
 
 
         duration:
-            data.duration
+            result.duration
 
 
     };
 
+
 }
+
