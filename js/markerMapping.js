@@ -3,23 +3,88 @@
 /*
 =========================================================
 Marker Mapping
-OCRA Video Analyzer
 
 Responsabilidades:
-- Asociar marcadores Kinovea con puntos anatómicos.
-- Mantener Kinovea independiente del modelo biomecánico.
-- Preparar cálculo angular.
-
-Ejemplo:
-
-Kinovea:
-"Marcador 1"
-
-Modelo:
-"right_shoulder"
+- Asociar marcadores de Kinovea con partes anatómicas.
+- Mantener una única lista anatómica.
+- Generar interfaz de selección.
+- Preparar datos para cálculo biomecánico.
 
 =========================================================
 */
+
+
+/*
+=========================================================
+Lista anatómica única
+=========================================================
+*/
+
+
+const anatomicalPoints = {
+
+
+    right_shoulder:
+        "Hombro derecho",
+
+
+    right_elbow:
+        "Codo derecho",
+
+
+    right_wrist:
+        "Muñeca derecha",
+
+
+
+    left_shoulder:
+        "Hombro izquierdo",
+
+
+    left_elbow:
+        "Codo izquierdo",
+
+
+    left_wrist:
+        "Muñeca izquierda",
+
+
+
+    neck:
+        "Cuello",
+
+
+    head:
+        "Cabeza",
+
+
+
+    pelvis:
+        "Pelvis",
+
+
+
+    right_knee:
+        "Rodilla derecha",
+
+
+    left_knee:
+        "Rodilla izquierda",
+
+
+
+    right_ankle:
+        "Tobillo derecho",
+
+
+    left_ankle:
+        "Tobillo izquierdo"
+
+
+};
+
+
+
 
 
 /*
@@ -29,40 +94,21 @@ Mapa actual
 */
 
 
-let markerMapping = {
-
-    right_shoulder: null,
-
-    right_elbow: null,
-
-    right_wrist: null,
+let markerMapping = {};
 
 
-    left_shoulder: null,
+Object.keys(
+    anatomicalPoints
+)
+.forEach(
+    point => {
 
-    left_elbow: null,
+        markerMapping[point] =
+            null;
 
-    left_wrist: null,
+    }
+);
 
-
-    neck: null,
-
-    head: null,
-
-
-    pelvis: null,
-
-
-    right_knee: null,
-
-    left_knee: null,
-
-
-    right_ankle: null,
-
-    left_ankle: null
-
-};
 
 
 
@@ -75,7 +121,9 @@ Cargar mapa
 */
 
 
-function loadMarkerMapping(mapping) {
+function loadMarkerMapping(
+    mapping
+) {
 
 
     if (!mapping) {
@@ -86,31 +134,33 @@ function loadMarkerMapping(mapping) {
 
 
 
-    Object.keys(markerMapping)
-        .forEach(
-            joint => {
+    Object.keys(
+        markerMapping
+    )
+    .forEach(
+        joint => {
 
 
-                if (
-                    mapping[joint] !== undefined
-                ) {
+            if (
+                mapping[joint] !== undefined
+            ) {
 
 
-                    markerMapping[joint] =
-                        mapping[joint];
-
-
-                }
-
+                markerMapping[joint] =
+                    mapping[joint];
 
             }
-        );
+
+
+        }
+    );
 
 
 
     return markerMapping;
 
 }
+
 
 
 
@@ -127,12 +177,12 @@ function saveMarkerMapping() {
 
 
     return {
-
         ...markerMapping
-
     };
 
+
 }
+
 
 
 
@@ -180,6 +230,7 @@ function mapMarkerToJoint(
 
 
 
+
 /*
 =========================================================
 Obtener posición anatómica
@@ -199,16 +250,7 @@ function getJointPosition(
 
 
     if (
-        !marker
-    ) {
-
-        return null;
-
-    }
-
-
-
-    if (
+        !marker ||
         !frame ||
         !frame.landmarks
     ) {
@@ -231,40 +273,112 @@ function getJointPosition(
 
 
 
+
 /*
 =========================================================
-Obtener todos los puntos anatómicos
+Crear interfaz de asignación
 =========================================================
 */
 
 
-function extractAnatomicalFrame(
-    frame
+function createMarkerMappingUI(
+    markers
 ) {
 
 
-    const anatomical = {};
-
-
-
-    Object.keys(markerMapping)
-        .forEach(
-            joint => {
-
-
-                anatomical[joint] =
-                    getJointPosition(
-                        frame,
-                        joint
-                    );
-
-
-            }
+    const container =
+        document.getElementById(
+            "markerMappingContainer"
         );
 
 
 
-    return anatomical;
+    if (!container) {
+
+        console.warn(
+            "No existe markerMappingContainer"
+        );
+
+        return;
+
+    }
+
+
+
+    let html = "";
+
+
+
+    markers.forEach(
+        marker => {
+
+
+            html += `
+
+            <div class="marker-row">
+
+
+                <label>
+
+                    ${marker}
+
+                </label>
+
+
+                <select
+                    data-marker="${marker}"
+                    onchange="updateMarkerMapping(this)"
+                >
+
+
+                    <option value="">
+                        -- seleccionar --
+                    </option>
+
+
+            `;
+
+
+
+            Object.entries(
+                anatomicalPoints
+            )
+            .forEach(
+                ([key,label]) => {
+
+
+                    html += `
+
+                    <option value="${key}">
+                        ${label}
+                    </option>
+
+                    `;
+
+
+                }
+            );
+
+
+
+            html += `
+
+                </select>
+
+
+            </div>
+
+            `;
+
+
+        }
+    );
+
+
+
+    container.innerHTML =
+        html;
+
 
 }
 
@@ -272,9 +386,60 @@ function extractAnatomicalFrame(
 
 
 
+
 /*
 =========================================================
-Comprobar mapa completo
+Actualizar selección usuario
+=========================================================
+*/
+
+
+function updateMarkerMapping(
+    select
+) {
+
+
+    const marker =
+        select.dataset.marker;
+
+
+
+    const joint =
+        select.value;
+
+
+
+    if (!joint) {
+
+        return;
+
+    }
+
+
+
+    mapMarkerToJoint(
+        joint,
+        marker
+    );
+
+
+
+    console.log(
+        "Mapping actualizado:",
+        saveMarkerMapping()
+    );
+
+
+}
+
+
+
+
+
+
+/*
+=========================================================
+Validación
 =========================================================
 */
 
@@ -290,14 +455,16 @@ function validateMarkerMapping() {
         markerMapping
     )
     .forEach(
-        ([joint, marker]) => {
+        ([joint,marker]) => {
 
 
             if (
                 marker === null
             ) {
 
-                missing.push(joint);
+                missing.push(
+                    joint
+                );
 
             }
 
@@ -317,5 +484,6 @@ function validateMarkerMapping() {
         missing
 
     };
+
 
 }
