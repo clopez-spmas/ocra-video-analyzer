@@ -3,22 +3,30 @@
 
 <head>
 
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-    <title>OCRA Video Analyzer</title>
+<title>OCRA Video Analyzer</title>
 
-    <link rel="stylesheet" href="css/style.css">
+
+<link rel="stylesheet"
+      href="css/style.css">
+
 
 </head>
 
+
 <body>
+
 
 <header class="header">
 
-    <h1>OCRA Video Analyzer</h1>
+    <h1>
+        OCRA Video Analyzer
+    </h1>
+
 
     <p>
         Análisis biomecánico basado en archivos JSON exportados por Kinovea
@@ -26,259 +34,437 @@
 
 </header>
 
+
+
 <main>
 
-    <!-- ===================================================== -->
-    <!-- Archivo -->
-    <!-- ===================================================== -->
 
-    <section class="panel">
 
-        <h2>Archivo de entrada</h2>
-
-        <input
-            type="file"
-            id="jsonFile"
-            accept=".json">
-
-        <p id="selectedFile">
-            Ningún archivo seleccionado.
-        </p>
-
-        <button
-            id="analyzeButton"
-            disabled>
-
-            Analizar
-
-        </button>
-
-    </section>
-
-    <!-- ===================================================== -->
-    <!-- Estado -->
-    <!-- ===================================================== -->
-
-    <section class="panel">
-
-        <h2>Estado</h2>
-
-        <div id="status">
-
-            Esperando un archivo JSON...
-
-        </div>
-
-    </section>
-
-    <!-- ===================================================== -->
-    <!-- Información -->
-    <!-- ===================================================== -->
-
-    <section class="panel">
-
-        <h2>Información del archivo</h2>
-
-        <table id="fileInfo">
-
-            <tr>
-                <td>Nombre</td>
-                <td id="fileName">-</td>
-            </tr>
-
-            <tr>
-                <td>Tamaño</td>
-                <td id="fileSize">-</td>
-            </tr>
-
-            <tr>
-                <td>Frames</td>
-                <td id="frameCount">-</td>
-            </tr>
-
-            <tr>
-                <td>Landmarks</td>
-                <td id="landmarkCount">-</td>
-            </tr>
-
-        </table>
-
-    </section>
-    
-    <!-- ===================================================== -->
-<!-- Asignación anatómica de marcadores -->
 <!-- ===================================================== -->
+<!-- Archivo -->
+<!-- ===================================================== -->
+
 
 <section class="panel">
 
-    <h2>Asignación anatómica de marcadores</h2>
 
-    <p>
-        Seleccione qué parte anatómica corresponde a cada marcador de Kinovea.
-    </p>
+<h2>
+    Archivo de entrada
+</h2>
 
-    <div id="markerMappingContainer">
 
-        Pendiente de asignación.
+<input
+    type="file"
+    id="jsonFile"
+    accept=".json">
 
-    </div>
+
+
+<p id="selectedFile">
+
+    Ningún archivo seleccionado.
+
+</p>
+
+
+
+<button
+    id="analyzeButton"
+    disabled>
+
+
+    Analizar
+
+
+</button>
+
 
 </section>
 
-    <!-- ===================================================== -->
-<!-- Marker Mapping -->
+
+
+
 <!-- ===================================================== -->
+<!-- Estado -->
+<!-- ===================================================== -->
+
 
 <section class="panel">
 
-    <h2>
-        Asignación anatómica de marcadores
-    </h2>
 
-    <div id="markerMappingContainer">
+<h2>
+    Estado
+</h2>
 
-        Pendiente de asignación.
 
-    </div>
+
+<div id="status">
+
+    Esperando un archivo JSON...
+
+</div>
+
 
 </section>
 
-    <!-- ===================================================== -->
-    <!-- Resultados biomecánicos -->
-    <!-- ===================================================== -->
 
-    <section class="panel">
 
-        <h2>Resultados biomecánicos</h2>
 
-        <div id="biomechanics">
 
-            Pendiente de análisis.
+<!-- ===================================================== -->
+<!-- Información -->
+<!-- ===================================================== -->
 
-        </div>
 
-    </section>
+<section class="panel">
 
-    <!-- ===================================================== -->
-    <!-- Posture Analysis -->
-    <!-- ===================================================== -->
 
-    <section class="panel">
+<h2>
+    Información del archivo
+</h2>
 
-        <h2>Posture Analysis</h2>
 
-        <div id="postureResults">
 
-            Pending analysis.
+<table id="fileInfo">
 
-        </div>
 
-    </section>
+<tr>
 
-    <!-- ===================================================== -->
-    <!-- Movement Analysis -->
-    <!-- ===================================================== -->
+<td>
+Nombre
+</td>
 
-    <section class="panel">
 
-        <h2>Movement Analysis</h2>
+<td id="fileName">
+-
+</td>
 
-        <div id="movementResults">
 
-            Pending analysis.
+</tr>
 
-        </div>
 
-    </section>
 
-    <!-- ===================================================== -->
-    <!-- Analysis Metrics -->
-    <!-- ===================================================== -->
+<tr>
 
-    <section class="panel">
+<td>
+Tamaño
+</td>
 
-        <h2>Analysis Metrics</h2>
 
-        <div id="analysisMetrics">
+<td id="fileSize">
+-
+</td>
 
-            Pending analysis.
 
-        </div>
+</tr>
 
-    </section>
 
-    <!-- ===================================================== -->
-    <!-- Acciones técnicas -->
-    <!-- ===================================================== -->
 
-    <section class="panel">
+<tr>
 
-        <h2>Acciones técnicas</h2>
+<td>
+Frames
+</td>
 
-        <div id="technicalActions">
 
-            Pendiente de análisis.
+<td id="frameCount">
+-
+</td>
 
-        </div>
 
-    </section>
+</tr>
 
-    <!-- ===================================================== -->
-    <!-- Evaluación -->
-    <!-- ===================================================== -->
 
-    <section class="panel">
 
-        <h2>Evaluación OCRA</h2>
+<tr>
 
-        <div id="ocraResults">
+<td>
+Landmarks
+</td>
 
-            Pendiente de análisis.
 
-        </div>
+<td id="landmarkCount">
+-
+</td>
 
-    </section>
+
+</tr>
+
+
+
+</table>
+
+
+
+</section>
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Mapping Kinovea -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Asignación anatómica de marcadores
+</h2>
+
+
+
+<p>
+
+Seleccione qué parte anatómica corresponde a cada marcador detectado en Kinovea.
+
+</p>
+
+
+
+<div id="markerMappingContainer">
+
+
+Pendiente de asignación.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Resultados biomecánicos -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Resultados biomecánicos
+</h2>
+
+
+
+<div id="biomechanics">
+
+
+Pendiente de análisis.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Postura -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Posture Analysis
+</h2>
+
+
+
+<div id="postureResults">
+
+
+Pending analysis.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Movimientos -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Movement Analysis
+</h2>
+
+
+
+<div id="movementResults">
+
+
+Pending analysis.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Métricas -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Analysis Metrics
+</h2>
+
+
+
+<div id="analysisMetrics">
+
+
+Pending analysis.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- Acciones técnicas -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Acciones técnicas
+</h2>
+
+
+
+<div id="technicalActions">
+
+
+Pendiente de análisis.
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+
+<!-- ===================================================== -->
+<!-- OCRA -->
+<!-- ===================================================== -->
+
+
+<section class="panel">
+
+
+<h2>
+Evaluación OCRA
+</h2>
+
+
+
+<div id="ocraResults">
+
+
+Pendiente de análisis.
+
+
+</div>
+
+
+</section>
+
+
+
 
 </main>
 
+
+
+
+
+
 <footer>
 
-    OCRA Video Analyzer v1.0
+
+<p>
+
+OCRA Video Analyzer v1.0
+
+</p>
+
 
 </footer>
 
-<!-- ===================================================== -->
-<!-- Librerías -->
-<!-- ===================================================== -->
 
-<script src="js/config.js"></script>
-<script src="js/models.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/state.js"></script>
-<script src="js/storage.js"></script>
-<script src="js/counter.js"></script>
-<script src="js/classification.js"></script>
-<script src="js/video.js"></script>
-<script src="js/excel.js"></script>
-<script src="js/ocra.js"></script>
+
+
+
 
 <!-- ===================================================== -->
-<!-- Proveedor Kinovea -->
+<!-- Javascript -->
+<!-- Orden importante -->
 <!-- ===================================================== -->
+
 
 <script src="js/kinovea.js"></script>
 
-<!-- ===================================================== -->
-<!-- Mapeo de marcadores anatómicos -->
-<!-- ===================================================== -->
-
-<script src="js/markerMapping.js"></script>
-
-<!-- ===================================================== -->
-<!-- Aplicación principal -->
-<!-- ===================================================== -->
+<script src="js/marker_mapping.js"></script>
 
 <script src="js/app.js"></script>
 
+
+
 </body>
+
+
 </html>
