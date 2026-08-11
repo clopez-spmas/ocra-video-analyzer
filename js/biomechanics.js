@@ -127,6 +127,15 @@ function hasPoint(
 
 /* =========================================================
    PUNTOS VIRTUALES
+
+   Se respetan las definiciones del catálogo:
+
+   V_HIP_CENTER       = centro de ambas caderas
+   V_SHOULDER_CENTER  = centro de ambos hombros
+   V_HEAD_CENTER      = centro de cabeza anterior/posterior
+   V_NECK_BASE        = punto neck_base
+
+   Estos puntos nunca se asignan directamente a marcadores.
    ========================================================= */
 
 function getVirtualPoint(
@@ -209,66 +218,55 @@ function getVirtualPoint(
     /*
     ---------------------------------------------------------
     CENTRO DE CABEZA
+
+    El catálogo define este punto a partir de head_front
+    y head_back. No se utiliza nose como sustituto porque
+    nose no forma parte de los 24 puntos anatómicos reales.
     ---------------------------------------------------------
     */
 
     if (name === "V_HEAD_CENTER") {
 
-        const head =
+        const front =
             getPoint(
                 frame,
-                "head"
+                "head_front"
             );
 
-        if (head) {
-            return head;
-        }
-
-        const nose =
+        const back =
             getPoint(
                 frame,
-                "nose"
+                "head_back"
             );
 
-        if (nose) {
-            return nose;
+        if (!front || !back) {
+            return null;
         }
 
-        return null;
+        return {
+            x: (front.x + back.x) / 2,
+            y: (front.y + back.y) / 2,
+            z: (
+                (front.z || 0) +
+                (back.z || 0)
+            ) / 2
+        };
     }
 
     /*
     ---------------------------------------------------------
     BASE DEL CUELLO
+
+    El catálogo define V_NECK_BASE a partir de neck_base.
     ---------------------------------------------------------
     */
 
     if (name === "V_NECK_BASE") {
 
-        const head =
-            getVirtualPoint(
-                frame,
-                "V_HEAD_CENTER"
-            );
-
-        const shoulders =
-            getVirtualPoint(
-                frame,
-                "V_SHOULDER_CENTER"
-            );
-
-        if (!head || !shoulders) {
-            return null;
-        }
-
-        return {
-            x: (head.x + shoulders.x) / 2,
-            y: (head.y + shoulders.y) / 2,
-            z: (
-                (head.z || 0) +
-                (shoulders.z || 0)
-            ) / 2
-        };
+        return getPoint(
+            frame,
+            "neck_base"
+        );
     }
 
     return null;
