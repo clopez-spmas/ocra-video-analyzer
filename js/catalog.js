@@ -7,13 +7,16 @@ Archivo: catalog.js
 
 CATÁLOGO MAESTRO DE 24 PUNTOS ANATÓMICOS
 
-Este archivo define únicamente el catálogo de puntos
-anatómicos utilizados por el analizador.
+Los 24 puntos de este catálogo son los puntos que el usuario
+puede asignar directamente a marcadores de Kinovea.
+
+Los puntos virtuales utilizados por biomecánica se mantienen
+fuera de este catálogo y se generan automáticamente cuando
+sea posible.
 
 NO realiza cálculos.
 NO realiza clasificación de riesgo.
 NO calcula puntuación OCRA.
-
 ==========================================================
 */
 
@@ -23,210 +26,213 @@ const ANATOMICAL_POINTS = {
         id: "head",
         name: "Cabeza",
         side: "center",
-        region: "head",
-        required_for: ["neck_flexion"]
+        region: "head"
+    },
+
+    head_front: {
+        id: "head_front",
+        name: "Punto anterior de cabeza",
+        side: "center",
+        region: "head"
+    },
+
+    head_back: {
+        id: "head_back",
+        name: "Punto posterior de cabeza",
+        side: "center",
+        region: "head"
+    },
+
+    right_ear: {
+        id: "right_ear",
+        name: "Oreja derecha",
+        side: "right",
+        region: "head"
+    },
+
+    left_ear: {
+        id: "left_ear",
+        name: "Oreja izquierda",
+        side: "left",
+        region: "head"
     },
 
     neck: {
         id: "neck",
-        name: "Cuello / base cervical",
+        name: "Cuello",
         side: "center",
-        region: "neck",
-        required_for: ["neck_flexion"]
+        region: "neck"
     },
 
-    left_shoulder: {
-        id: "left_shoulder",
-        name: "Hombro izquierdo",
-        side: "left",
-        region: "upper_limb",
-        required_for: ["shoulder_flexion_left", "elbow_flexion_left"]
+    neck_base: {
+        id: "neck_base",
+        name: "Base del cuello / C7",
+        side: "center",
+        region: "neck"
     },
 
     right_shoulder: {
         id: "right_shoulder",
         name: "Hombro derecho",
         side: "right",
-        region: "upper_limb",
-        required_for: ["shoulder_flexion_right", "elbow_flexion_right"]
+        region: "upper_limb"
     },
 
-    left_elbow: {
-        id: "left_elbow",
-        name: "Codo izquierdo",
+    left_shoulder: {
+        id: "left_shoulder",
+        name: "Hombro izquierdo",
         side: "left",
-        region: "upper_limb",
-        required_for: ["shoulder_flexion_left", "elbow_flexion_left", "wrist_flexion_left"]
+        region: "upper_limb"
     },
 
     right_elbow: {
         id: "right_elbow",
         name: "Codo derecho",
         side: "right",
-        region: "upper_limb",
-        required_for: ["shoulder_flexion_right", "elbow_flexion_right", "wrist_flexion_right"]
+        region: "upper_limb"
     },
 
-    left_wrist: {
-        id: "left_wrist",
-        name: "Muñeca izquierda",
+    left_elbow: {
+        id: "left_elbow",
+        name: "Codo izquierdo",
         side: "left",
-        region: "upper_limb",
-        required_for: ["wrist_flexion_left"]
+        region: "upper_limb"
     },
 
     right_wrist: {
         id: "right_wrist",
         name: "Muñeca derecha",
         side: "right",
-        region: "upper_limb",
-        required_for: ["wrist_flexion_right"]
+        region: "upper_limb"
     },
 
-    left_index: {
-        id: "left_index",
-        name: "Índice izquierdo",
+    left_wrist: {
+        id: "left_wrist",
+        name: "Muñeca izquierda",
         side: "left",
-        region: "hand",
-        required_for: ["wrist_flexion_left"]
+        region: "upper_limb"
     },
 
     right_index: {
         id: "right_index",
         name: "Índice derecho",
         side: "right",
-        region: "hand",
-        required_for: ["wrist_flexion_right"]
+        region: "hand"
     },
 
-    left_hip: {
-        id: "left_hip",
-        name: "Cadera izquierda",
+    left_index: {
+        id: "left_index",
+        name: "Índice izquierdo",
         side: "left",
-        region: "pelvis",
-        required_for: ["knee_flexion_left"]
+        region: "hand"
+    },
+
+    pelvis: {
+        id: "pelvis",
+        name: "Pelvis",
+        side: "center",
+        region: "pelvis"
     },
 
     right_hip: {
         id: "right_hip",
         name: "Cadera derecha",
         side: "right",
-        region: "pelvis",
-        required_for: ["knee_flexion_right"]
+        region: "pelvis"
     },
 
-    pelvis: {
-        id: "pelvis",
-        name: "Pelvis / centro de caderas",
-        side: "center",
-        region: "pelvis",
-        required_for: ["trunk_flexion", "trunk_lateral"]
-    },
-
-    left_knee: {
-        id: "left_knee",
-        name: "Rodilla izquierda",
+    left_hip: {
+        id: "left_hip",
+        name: "Cadera izquierda",
         side: "left",
-        region: "lower_limb",
-        required_for: ["knee_flexion_left", "ankle_left"]
+        region: "pelvis"
     },
 
     right_knee: {
         id: "right_knee",
         name: "Rodilla derecha",
         side: "right",
-        region: "lower_limb",
-        required_for: ["knee_flexion_right", "ankle_right"]
+        region: "lower_limb"
     },
 
-    left_ankle: {
-        id: "left_ankle",
-        name: "Tobillo izquierdo",
+    left_knee: {
+        id: "left_knee",
+        name: "Rodilla izquierda",
         side: "left",
-        region: "lower_limb",
-        required_for: ["ankle_left"]
+        region: "lower_limb"
     },
 
     right_ankle: {
         id: "right_ankle",
         name: "Tobillo derecho",
         side: "right",
-        region: "lower_limb",
-        required_for: ["ankle_right"]
+        region: "lower_limb"
     },
 
-    left_heel: {
-        id: "left_heel",
-        name: "Talón izquierdo",
+    left_ankle: {
+        id: "left_ankle",
+        name: "Tobillo izquierdo",
         side: "left",
-        region: "foot",
-        required_for: []
-    },
-
-    right_heel: {
-        id: "right_heel",
-        name: "Talón derecho",
-        side: "right",
-        region: "foot",
-        required_for: []
-    },
-
-    left_foot: {
-        id: "left_foot",
-        name: "Pie izquierdo",
-        side: "left",
-        region: "foot",
-        required_for: ["ankle_left"]
+        region: "lower_limb"
     },
 
     right_foot: {
         id: "right_foot",
         name: "Pie derecho",
         side: "right",
-        region: "foot",
-        required_for: ["ankle_right"]
+        region: "foot"
     },
 
-    shoulder_center: {
-        id: "shoulder_center",
-        name: "Centro de hombros",
-        side: "center",
-        region: "virtual",
-        virtual: true,
-        required_for: ["trunk_flexion", "trunk_lateral", "neck_flexion"]
-    },
-
-    hip_center: {
-        id: "hip_center",
-        name: "Centro de caderas",
-        side: "center",
-        region: "virtual",
-        virtual: true,
-        required_for: []
-    },
-
-    neck_base: {
-        id: "neck_base",
-        name: "Base del cuello",
-        side: "center",
-        region: "virtual",
-        virtual: true,
-        required_for: []
-    },
-
-    head_center: {
-        id: "head_center",
-        name: "Centro de cabeza",
-        side: "center",
-        region: "virtual",
-        virtual: true,
-        required_for: []
+    left_foot: {
+        id: "left_foot",
+        name: "Pie izquierdo",
+        side: "left",
+        region: "foot"
     }
 };
 
 
 /* ==========================================================
-   CATÁLOGO DE MEDICIONES BIOMECÁNICAS
+   PUNTOS VIRTUALES
+
+   No se asignan a marcadores Kinovea.
+   Se calculan a partir de puntos reales cuando existen.
+========================================================== */
+
+const VIRTUAL_ANATOMICAL_POINTS = {
+
+    V_HIP_CENTER: {
+        id: "V_HIP_CENTER",
+        name: "Centro virtual de caderas",
+        virtual: true,
+        source: ["left_hip", "right_hip"]
+    },
+
+    V_SHOULDER_CENTER: {
+        id: "V_SHOULDER_CENTER",
+        name: "Centro virtual de hombros",
+        virtual: true,
+        source: ["left_shoulder", "right_shoulder"]
+    },
+
+    V_HEAD_CENTER: {
+        id: "V_HEAD_CENTER",
+        name: "Centro virtual de cabeza",
+        virtual: true,
+        source: ["head_front", "head_back"]
+    },
+
+    V_NECK_BASE: {
+        id: "V_NECK_BASE",
+        name: "Base virtual del cuello",
+        virtual: true,
+        source: ["neck_base"]
+    }
+};
+
+
+/* ==========================================================
+   MEDICIONES BIOMECÁNICAS
 ========================================================== */
 
 const BIOMECHANICAL_CATALOG = {
@@ -234,7 +240,7 @@ const BIOMECHANICAL_CATALOG = {
     trunk_flexion: {
         name: "Flexión / extensión de tronco",
         type: "segment_angle",
-        points: ["pelvis", "shoulder_center"],
+        points: ["pelvis", "V_SHOULDER_CENTER"],
         plane: "sagittal",
         unit: "deg",
         thresholds: null
@@ -243,7 +249,7 @@ const BIOMECHANICAL_CATALOG = {
     trunk_lateral: {
         name: "Inclinación lateral de tronco",
         type: "segment_angle",
-        points: ["pelvis", "shoulder_center"],
+        points: ["pelvis", "V_SHOULDER_CENTER"],
         plane: "frontal",
         unit: "deg",
         thresholds: null
@@ -252,7 +258,7 @@ const BIOMECHANICAL_CATALOG = {
     neck_flexion: {
         name: "Flexión / extensión cervical",
         type: "angle",
-        points: ["head", "neck", "shoulder_center"],
+        points: ["V_HEAD_CENTER", "neck", "V_SHOULDER_CENTER"],
         plane: "sagittal",
         unit: "deg",
         thresholds: null
@@ -261,7 +267,7 @@ const BIOMECHANICAL_CATALOG = {
     shoulder_flexion_left: {
         name: "Flexión hombro izquierdo",
         type: "angle",
-        points: ["left_elbow", "left_shoulder", "pelvis"],
+        points: ["left_elbow", "left_shoulder", "V_HIP_CENTER"],
         plane: "sagittal",
         unit: "deg",
         thresholds: null
@@ -270,7 +276,7 @@ const BIOMECHANICAL_CATALOG = {
     shoulder_flexion_right: {
         name: "Flexión hombro derecho",
         type: "angle",
-        points: ["right_elbow", "right_shoulder", "pelvis"],
+        points: ["right_elbow", "right_shoulder", "V_HIP_CENTER"],
         plane: "sagittal",
         unit: "deg",
         thresholds: null
@@ -355,6 +361,7 @@ const BIOMECHANICAL_CATALOG = {
 ========================================================== */
 
 window.AnatomicalPoints = ANATOMICAL_POINTS;
+window.VirtualAnatomicalPoints = VIRTUAL_ANATOMICAL_POINTS;
 window.BIOMECHANICAL_CATALOG = BIOMECHANICAL_CATALOG;
 window.BiomechanicalCatalog = BIOMECHANICAL_CATALOG;
 window.CATALOG = BIOMECHANICAL_CATALOG;
@@ -362,5 +369,7 @@ window.CATALOG = BIOMECHANICAL_CATALOG;
 console.log(
     "OCRA Video Analyzer: catalog.js cargado correctamente",
     "| puntos anatómicos:",
-    Object.keys(ANATOMICAL_POINTS).length
+    Object.keys(ANATOMICAL_POINTS).length,
+    "| puntos virtuales:",
+    Object.keys(VIRTUAL_ANATOMICAL_POINTS).length
 );
