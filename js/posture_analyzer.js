@@ -2,309 +2,203 @@
 
 /*
 =========================================================
-OCRA Video Analyzer
-Posture Analyzer
+OCRA VIDEO ANALYZER
+POSTURE ANALYZER
 =========================================================
 
-Responsabilidades:
+Analiza la exposición temporal de cada medición.
 
-- Recibir biomechanicalFrames.
-- Agrupar mediciones por tipo.
-- Aplicar el umbral correspondiente.
-- Calcular tiempo acumulado.
-- Calcular porcentaje del vídeo.
-- Detectar episodios.
-- Calcular resultados por ciclo.
-- Funcionar sin ciclo.
-- No contar intervalos en los que faltan landmarks.
+REGLA PRINCIPAL:
 
-IMPORTANTE:
+- "Todo el vídeo" -> se analiza todo el vídeo.
+- "Manual" -> se analiza exclusivamente el intervalo indicado.
+- "Fijo" -> se analiza exclusivamente el intervalo que comienza
+  en el momento indicado y dura lo indicado.
 
-Cada llamada a PostureAnalyzer.analyze()
-corresponde EXCLUSIVAMENTE a un vídeo.
+El vídeo completo se sigue leyendo y se conserva su duración real,
+pero los resultados temporales nunca utilizan frames fuera del
+período seleccionado.
 
-No se mezclan datos entre vídeos.
-
-NO realiza:
-
-- puntuación OCRA
-- clasificación de riesgo
-- interpretación ergonómica
+No realiza puntuación OCRA ni clasificación de riesgo.
 =========================================================
 */
 
-
 const PostureAnalyzer = {
 
-    /*
-    =====================================================
-    ANALIZAR UN VÍDEO
-    =====================================================
-    */
+    analyze(biomechanicalFrames, cycleConfig) {
 
-    analyze(
-        biomechanicalFrames,
-        cycleConfig
-    ) {
-
-        if (
-            !Array.isArray(
-                biomechanicalFrames
-            )
-        ) {
-
+        if (!Array.isArray(biomechanicalFrames)) {
             return {
-
                 videoDuration: 0,
-
+                analysisStartTime: 0,
+                analysisEndTime: 0,
+                analysisDuration: 0,
                 measurements: []
-
             };
-
         }
 
-
-        /*
-        -------------------------------------------------
-        Duración del vídeo
-        -------------------------------------------------
-        */
-
-        const videoDuration =
-            getVideoDuration(
-                biomechanicalFrames
-            );
-
-
-        /*
-        -------------------------------------------------
-        Agrupar mediciones
-        -------------------------------------------------
-        */
-
-        const grouped =
-            groupMeasurements(
-                biomechanicalFrames
-            );
-
-
+        const videoDuration = getVideoDuration(biomechanicalFrames);
+        const period = resolveAnalysisPeriod(videoDuration, cycleConfig);
+        const grouped = groupMeasurements(biomechanicalFrames);
         const results = [];
 
+        Object.keys(grouped).forEach(name => {
 
-        /*
-        =================================================
-        UNA FILA POR MEDICIÓN
-        =================================================
-        */
+            const frames = grouped[name];
+            const threshold = getThreshold(name);
 
-        Object.keys(grouped)
-        .forEach(
-            name => {
-
-                const frames =
-                    grouped[name];
-
-
-                /*
-                -------------------------------------------------
-                Obtener umbral global
-                -------------------------------------------------
-                */
-
-                const threshold =
-                    getThreshold(
-                        name
-                    );
-
-
-                if (
-                    threshold === null
-                ) {
-
-                    return;
-
-                }
-
-
-                /*
-                =================================================
-                RESULTADO SOBRE TODO EL VÍDEO
-                =================================================
-                */
-
-                const videoResult =
-                    analyzePeriod(
-                        frames,
-                        0,
-                        videoDuration,
-                        threshold
-                    );
-
-
-                /*
-                =================================================
-                RESULTADO DE CICLO
-                =================================================
-                */
-
-                let cycleResult = {
-
-                    enabled:
-                        false,
-
-                    mode:
-                        "video",
-
-                    duration:
-                        null,
-
-                    startTime:
-                        null,
-
-                    endTime:
-                        null,
-
-                    exposureTime:
-                        null,
-
-                    exposurePercentage:
-                        null,
-
-                    episodes:
-                        null,
-
-                    cycles:
-                        0
-
-                };
-
-
-                /*
-                -------------------------------------------------
-                No hay ciclo:
-                cycle queda desactivado.
-                -------------------------------------------------
-                */
-
-                if (
-                    cycleConfig
-                    &&
-                    cycleConfig.enabled === true
-                ) {
-
-                    /*
-                    =============================================
-                    CICLO FIJO
-                    =============================================
-                    */
-
-                    if (
-                        cycleConfig.mode ===
-                        "fixed"
-                    ) {
-
-                        cycleResult =
-                            analyzeFixedCycles(
-                                frames,
-                                videoDuration,
-                                threshold,
-                                cycleConfig.cycleTime
-                            );
-
-                    }
-
-
-                    /*
-                    =============================================
-                    CICLO MANUAL
-                    =============================================
-                    */
-
-                    else if (
-                        cycleConfig.mode ===
-                        "manual"
-                    ) {
-
-                        cycleResult =
-                            analyzeManualCycle(
-                                frames,
-                                threshold,
-                                cycleConfig.startTime,
-                                cycleConfig.endTime
-                            );
-
-                    }
-
-                }
-
-
-                /*
-                =================================================
-                RESULTADO INDIVIDUAL
-                =================================================
-                */
-
-                results.push({
-
-                    name:
-                        name,
-
-                    label:
-                        getMeasurementLabel(
-                            name
-                        ),
-
-                    description:
-                        getMeasurementDescription(
-                            name
-                        ),
-
-                    threshold:
-                        threshold,
-
-                    unit:
-                        "deg",
-
-                    videoDuration:
-                        videoDuration,
-
-                    videoExposureTime:
-                        videoResult.exposureTime,
-
-                    videoExposurePercentage:
-                        videoResult.exposurePercentage,
-
-                    videoEpisodes:
-                        videoResult.episodes,
-
-                    cycle:
-                        cycleResult
-
-                });
-
+            if (threshold === null) {
+                return;
             }
-        );
 
+            /*
+            =================================================
+            RESULTADO DEL PERÍODO SELECCIONADO
+            =================================================
+            */
+            const analysisResult = analyzePeriod(
+                frames,
+                period.startTime,
+                period.endTime,
+                threshold
+            );
 
-        /*
-        =================================================
-        DEVOLVER RESULTADO EXCLUSIVO DE ESTE VÍDEO
-        =================================================
-        */
+            /*
+            =================================================
+            RESULTADO DE CICLO
+            =================================================
 
-        return {
+            Cuando se selecciona un período concreto, el ciclo
+            representa exactamente ese período. Así no se vuelve
+            a introducir accidentalmente todo el vídeo.
+            */
+            let cycleResult = {
+                enabled: false,
+                mode: "video",
+                duration: null,
+                startTime: null,
+                endTime: null,
+                exposureTime: null,
+                exposurePercentage: null,
+                episodes: null,
+                cycles: 0
+            };
 
-            videoDuration:
+            if (period.mode !== "video") {
+                cycleResult = {
+                    enabled: true,
+                    mode: period.mode,
+                    duration: period.endTime - period.startTime,
+                    startTime: period.startTime,
+                    endTime: period.endTime,
+                    exposureTime: analysisResult.exposureTime,
+                    exposurePercentage: analysisResult.exposurePercentage,
+                    episodes: analysisResult.episodes,
+                    cycles: 1
+                };
+            }
+
+            results.push({
+                name,
+                label: getMeasurementLabel(name),
+                description: getMeasurementDescription(name),
+                threshold,
+                unit: "deg",
+
+                /* Duración real del archivo/vídeo. */
                 videoDuration,
 
-            measurements:
-                results
+                /* Período que realmente se ha analizado. */
+                analysisStartTime: period.startTime,
+                analysisEndTime: period.endTime,
+                analysisDuration: period.endTime - period.startTime,
 
+                /* Campos históricos utilizados por la interfaz. */
+                videoExposureTime: analysisResult.exposureTime,
+                videoExposurePercentage: analysisResult.exposurePercentage,
+                videoEpisodes: analysisResult.episodes,
+
+                cycle: cycleResult
+            });
+        });
+
+        return {
+            videoDuration,
+            analysisStartTime: period.startTime,
+            analysisEndTime: period.endTime,
+            analysisDuration: period.endTime - period.startTime,
+            analysisMode: period.mode,
+            measurements: results
         };
+    }
+};
 
+
+/*
+=========================================================
+RESOLVER PERÍODO DE ANÁLISIS
+=========================================================
+*/
+function resolveAnalysisPeriod(videoDuration, cycleConfig) {
+
+    const duration = Math.max(0, Number(videoDuration) || 0);
+
+    if (!cycleConfig || cycleConfig.enabled !== true) {
+        return {
+            mode: "video",
+            startTime: 0,
+            endTime: duration
+        };
     }
 
-};
+    const mode = ["manual", "fixed"].includes(cycleConfig.mode)
+        ? cycleConfig.mode
+        : "video";
+
+    if (mode === "manual") {
+        const start = clampTime(cycleConfig.startTime, 0, duration);
+        const requestedEnd = Number(cycleConfig.endTime);
+
+        if (!Number.isFinite(requestedEnd) || requestedEnd <= start) {
+            return {
+                mode: "video",
+                startTime: 0,
+                endTime: duration
+            };
+        }
+
+        return {
+            mode: "manual",
+            startTime: start,
+            endTime: Math.min(requestedEnd, duration)
+        };
+    }
+
+    const start = clampTime(cycleConfig.startTime, 0, duration);
+    const cycleTime = Number(cycleConfig.cycleTime);
+
+    if (!Number.isFinite(cycleTime) || cycleTime <= 0 || start >= duration) {
+        return {
+            mode: "video",
+            startTime: 0,
+            endTime: duration
+        };
+    }
+
+    return {
+        mode: "fixed",
+        startTime: start,
+        endTime: Math.min(start + cycleTime, duration)
+    };
+}
+
+function clampTime(value, min, max) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+        return min;
+    }
+    return Math.min(Math.max(number, min), max);
+}
 
 
 /*
@@ -312,84 +206,31 @@ const PostureAnalyzer = {
 AGRUPAR MEDICIONES
 =========================================================
 */
-
-function groupMeasurements(
-    frames
-) {
+function groupMeasurements(frames) {
 
     const groups = {};
 
-
-    frames.forEach(
-        frame => {
-
-            if (
-                !frame
-                ||
-                !frame.name
-            ) {
-
-                return;
-
-            }
-
-
-            const name =
-                frame.name;
-
-
-            if (
-                !groups[name]
-            ) {
-
-                groups[name] = [];
-
-            }
-
-
-            groups[name].push(
-                frame
-            );
-
+    frames.forEach(frame => {
+        if (!frame || !frame.name) {
+            return;
         }
-    );
 
+        const name = frame.name;
 
-    /*
-    -----------------------------------------------------
-    Orden temporal
-    -----------------------------------------------------
-    */
-
-    Object.keys(groups)
-    .forEach(
-        name => {
-
-            groups[name].sort(
-                (
-                    a,
-                    b
-                ) => {
-
-                    return (
-                        Number(
-                            a.timestamp
-                        )
-                        -
-                        Number(
-                            b.timestamp
-                        )
-                    );
-
-                }
-            );
-
+        if (!groups[name]) {
+            groups[name] = [];
         }
-    );
 
+        groups[name].push(frame);
+    });
+
+    Object.keys(groups).forEach(name => {
+        groups[name].sort((a, b) =>
+            Number(a.timestamp) - Number(b.timestamp)
+        );
+    });
 
     return groups;
-
 }
 
 
@@ -398,112 +239,46 @@ function groupMeasurements(
 DURACIÓN DEL VÍDEO
 =========================================================
 */
-
-function getVideoDuration(
-    frames
-) {
+function getVideoDuration(frames) {
 
     let maxTime = 0;
 
-
-    frames.forEach(
-        frame => {
-
-            if (
-                !frame
-            ) {
-
-                return;
-
-            }
-
-
-            const time =
-                Number(
-                    frame.timestamp
-                );
-
-
-            if (
-                Number.isFinite(
-                    time
-                )
-                &&
-                time > maxTime
-            ) {
-
-                maxTime =
-                    time;
-
-            }
-
+    frames.forEach(frame => {
+        if (!frame) {
+            return;
         }
-    );
 
+        const time = Number(frame.timestamp);
+
+        if (Number.isFinite(time) && time > maxTime) {
+            maxTime = time;
+        }
+    });
 
     return maxTime;
-
 }
 
 
 /*
 =========================================================
-OBTENER UMBRAL GLOBAL
+UMBRAL
 =========================================================
 */
+function getThreshold(name) {
 
-function getThreshold(
-    name
-) {
-
-    /*
-    -----------------------------------------------------
-    Los umbrales son comunes a todos los vídeos.
-    -----------------------------------------------------
-    */
-
-    if (
-        typeof Thresholds ===
-        "undefined"
-    ) {
-
+    if (typeof Thresholds === "undefined") {
         return null;
-
     }
 
+    const definition = Thresholds[name];
 
-    const definition =
-        Thresholds[name];
-
-
-    if (
-        !definition
-    ) {
-
+    if (!definition) {
         return null;
-
     }
 
+    const value = Number(definition.value);
 
-    const value =
-        Number(
-            definition.value
-        );
-
-
-    if (
-        !Number.isFinite(
-            value
-        )
-    ) {
-
-        return null;
-
-    }
-
-
-    return value;
-
+    return Number.isFinite(value) ? value : null;
 }
 
 
@@ -512,27 +287,17 @@ function getThreshold(
 NOMBRE VISIBLE
 =========================================================
 */
-
-function getMeasurementLabel(
-    name
-) {
+function getMeasurementLabel(name) {
 
     if (
-        typeof Thresholds !==
-        "undefined"
-        &&
-        Thresholds[name]
-        &&
+        typeof Thresholds !== "undefined" &&
+        Thresholds[name] &&
         Thresholds[name].label
     ) {
-
         return Thresholds[name].label;
-
     }
 
-
     return name;
-
 }
 
 
@@ -541,27 +306,17 @@ function getMeasurementLabel(
 DESCRIPCIÓN
 =========================================================
 */
-
-function getMeasurementDescription(
-    name
-) {
+function getMeasurementDescription(name) {
 
     if (
-        typeof Thresholds !==
-        "undefined"
-        &&
-        Thresholds[name]
-        &&
+        typeof Thresholds !== "undefined" &&
+        Thresholds[name] &&
         Thresholds[name].description
     ) {
-
         return Thresholds[name].description;
-
     }
 
-
     return name;
-
 }
 
 
@@ -570,725 +325,120 @@ function getMeasurementDescription(
 ANALIZAR PERÍODO
 =========================================================
 
-Calcula:
+Solo se seleccionan frames cuyo timestamp está dentro del
+intervalo solicitado.
 
-- tiempo por encima del umbral
-- porcentaje
-- episodios
-
-IMPORTANTE:
-
-NO se acumula el intervalo entre dos frames
-si alguno de los dos frames no es válido.
-
-Esto evita atravesar huecos de tracking.
+El tiempo acumulado solo se suma cuando el frame actual y el
+siguiente son válidos. Esto evita atravesar huecos de tracking.
 =========================================================
 */
+function analyzePeriod(frames, startTime, endTime, threshold) {
 
-function analyzePeriod(
-    frames,
-    startTime,
-    endTime,
-    threshold
-) {
-
-    const start =
-        Number(
-            startTime
-        );
-
-
-    const end =
-        Number(
-            endTime
-        );
-
+    const start = Number(startTime);
+    const end = Number(endTime);
 
     if (
-        !Number.isFinite(start)
-        ||
-        !Number.isFinite(end)
-        ||
+        !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
         end <= start
     ) {
-
         return {
-
-            exposureTime:
-                0,
-
-            exposurePercentage:
-                0,
-
-            episodes:
-                0
-
+            exposureTime: 0,
+            exposurePercentage: 0,
+            episodes: 0
         };
-
     }
 
+    const selected = frames.filter(frame => {
+        if (!frame) {
+            return false;
+        }
 
-    /*
-    -----------------------------------------------------
-    Seleccionar únicamente frames del período
-    -----------------------------------------------------
-    */
+        const time = Number(frame.timestamp);
 
-    const selected =
-        frames.filter(
-            frame => {
-
-                if (
-                    !frame
-                ) {
-
-                    return false;
-
-                }
-
-
-                const time =
-                    Number(
-                        frame.timestamp
-                    );
-
-
-                return (
-                    Number.isFinite(
-                        time
-                    )
-                    &&
-                    time >= start
-                    &&
-                    time <= end
-                );
-
-            }
+        return (
+            Number.isFinite(time) &&
+            time >= start &&
+            time <= end
         );
+    });
 
-
-    if (
-        selected.length === 0
-    ) {
-
+    if (selected.length === 0) {
         return {
-
-            exposureTime:
-                0,
-
-            exposurePercentage:
-                0,
-
-            episodes:
-                0
-
+            exposureTime: 0,
+            exposurePercentage: 0,
+            episodes: 0
         };
-
     }
 
+    let exposureTime = 0;
+    let episodes = 0;
+    let inExposure = false;
 
-    let exposureTime =
-        0;
+    for (let i = 0; i < selected.length; i++) {
 
-
-    let episodes =
-        0;
-
-
-    let inExposure =
-        false;
-
-
-    /*
-    =====================================================
-    RECORRER FRAMES
-    =====================================================
-    */
-
-    for (
-        let i = 0;
-        i < selected.length;
-        i++
-    ) {
-
-        const current =
-            selected[i];
-
-
-        const currentTime =
-            Number(
-                current.timestamp
-            );
-
-
-        const currentValue =
-            Number(
-                current.value
-            );
-
-
-        /*
-        -------------------------------------------------
-        Frame válido
-        -------------------------------------------------
-        */
+        const current = selected[i];
+        const currentTime = Number(current.timestamp);
+        const currentValue = Number(current.value);
 
         const currentValid =
-            current.valid === true
-            &&
-            Number.isFinite(
-                currentValue
-            )
-            &&
-            Number.isFinite(
-                currentTime
-            );
+            current.valid === true &&
+            Number.isFinite(currentValue) &&
+            Number.isFinite(currentTime);
 
-
-        /*
-        -------------------------------------------------
-        Si falta el dato:
-
-        - termina episodio
-        - no acumula tiempo
-        -------------------------------------------------
-        */
-
-        if (
-            !currentValid
-        ) {
-
-            inExposure =
-                false;
-
+        if (!currentValid) {
+            inExposure = false;
             continue;
-
         }
 
+        const isAbove = currentValue >= threshold;
 
-        const isAbove =
-            currentValue >= threshold;
-
-
-        /*
-        -------------------------------------------------
-        Inicio de episodio
-        -------------------------------------------------
-        */
-
-        if (
-            isAbove
-            &&
-            !inExposure
-        ) {
-
+        if (isAbove && !inExposure) {
             episodes++;
-
-            inExposure =
-                true;
-
+            inExposure = true;
         }
 
-
-        /*
-        -------------------------------------------------
-        Final de episodio
-        -------------------------------------------------
-        */
-
-        if (
-            !isAbove
-        ) {
-
-            inExposure =
-                false;
-
+        if (!isAbove) {
+            inExposure = false;
         }
 
+        if (i < selected.length - 1 && isAbove) {
 
-        /*
-        -------------------------------------------------
-        Intervalo hasta siguiente frame
-        -------------------------------------------------
-        */
-
-        if (
-            i <
-            selected.length - 1
-        ) {
-
-            const next =
-                selected[i + 1];
-
-
-            const nextTime =
-                Number(
-                    next.timestamp
-                );
-
-
-            const nextValue =
-                Number(
-                    next.value
-                );
-
+            const next = selected[i + 1];
+            const nextTime = Number(next.timestamp);
+            const nextValue = Number(next.value);
 
             const nextValid =
-                next.valid === true
-                &&
-                Number.isFinite(
-                    nextValue
-                )
-                &&
-                Number.isFinite(
-                    nextTime
-                );
+                next.valid === true &&
+                Number.isFinite(nextValue) &&
+                Number.isFinite(nextTime);
 
+            if (nextValid) {
+                let interval = nextTime - currentTime;
+                interval = Math.max(0, interval);
 
-            /*
-            -------------------------------------------------
-            SOLO se cuenta si ambos frames son válidos.
-            -------------------------------------------------
-            */
+                const remaining = Math.max(0, end - currentTime);
+                interval = Math.min(interval, remaining);
 
-            if (
-                isAbove
-                &&
-                nextValid
-            ) {
-
-                let interval =
-                    nextTime -
-                    currentTime;
-
-
-                interval =
-                    Math.max(
-                        0,
-                        interval
-                    );
-
-
-                /*
-                No salir del período.
-                */
-
-                const remaining =
-                    Math.max(
-                        0,
-                        end -
-                        currentTime
-                    );
-
-
-                interval =
-                    Math.min(
-                        interval,
-                        remaining
-                    );
-
-
-                exposureTime +=
-                    interval;
-
+                exposureTime += interval;
             }
-
         }
-
     }
 
+    const periodDuration = Math.max(0, end - start);
 
-    /*
-    =====================================================
-    LIMITAR EXPOSICIÓN
-    =====================================================
-    */
-
-    const periodDuration =
-        Math.max(
-            0,
-            end -
-            start
-        );
-
-
-    exposureTime =
-        Math.min(
-            exposureTime,
-            periodDuration
-        );
-
-
-    /*
-    =====================================================
-    PORCENTAJE
-    =====================================================
-    */
+    exposureTime = Math.min(exposureTime, periodDuration);
 
     const exposurePercentage =
         periodDuration > 0
-            ? (
-                exposureTime /
-                periodDuration
-            ) * 100
+            ? (exposureTime / periodDuration) * 100
             : 0;
 
-
     return {
-
-        exposureTime:
-            exposureTime,
-
-        exposurePercentage:
-            exposurePercentage,
-
-        episodes:
-            episodes
-
+        exposureTime,
+        exposurePercentage,
+        episodes
     };
-
-}
-
-
-/*
-=========================================================
-CICLOS FIJOS
-=========================================================
-*/
-
-function analyzeFixedCycles(
-    frames,
-    videoDuration,
-    threshold,
-    cycleTime
-) {
-
-    const duration =
-        Number(
-            cycleTime
-        );
-
-
-    if (
-        !Number.isFinite(
-            duration
-        )
-        ||
-        duration <= 0
-    ) {
-
-        return {
-
-            enabled:
-                false,
-
-            mode:
-                "fixed",
-
-            duration:
-                null,
-
-            startTime:
-                null,
-
-            endTime:
-                null,
-
-            exposureTime:
-                null,
-
-            exposurePercentage:
-                null,
-
-            episodes:
-                null,
-
-            cycles:
-                0
-
-        };
-
-    }
-
-
-    /*
-    -----------------------------------------------------
-    Número de ciclos completos
-    -----------------------------------------------------
-    */
-
-    const cycleCount =
-        Math.floor(
-            videoDuration /
-            duration
-        );
-
-
-    if (
-        cycleCount <= 0
-    ) {
-
-        return {
-
-            enabled:
-                true,
-
-            mode:
-                "fixed",
-
-            duration:
-                duration,
-
-            startTime:
-                0,
-
-            endTime:
-                0,
-
-            exposureTime:
-                0,
-
-            exposurePercentage:
-                0,
-
-            episodes:
-                0,
-
-            cycles:
-                0,
-
-            totalExposureTime:
-                0,
-
-            totalEpisodes:
-                0
-
-        };
-
-    }
-
-
-    let totalExposure =
-        0;
-
-
-    let totalEpisodes =
-        0;
-
-
-    /*
-    =====================================================
-    ANALIZAR CADA CICLO
-    =====================================================
-    */
-
-    for (
-        let i = 0;
-        i < cycleCount;
-        i++
-    ) {
-
-        const start =
-            i *
-            duration;
-
-
-        const end =
-            Math.min(
-                start +
-                duration,
-                videoDuration
-            );
-
-
-        const result =
-            analyzePeriod(
-                frames,
-                start,
-                end,
-                threshold
-            );
-
-
-        totalExposure +=
-            result.exposureTime;
-
-
-        totalEpisodes +=
-            result.episodes;
-
-    }
-
-
-    /*
-    =====================================================
-    MEDIA POR CICLO
-    =====================================================
-    */
-
-    const averageExposure =
-        totalExposure /
-        cycleCount;
-
-
-    const averagePercentage =
-        duration > 0
-            ? (
-                averageExposure /
-                duration
-            ) * 100
-            : 0;
-
-
-    return {
-
-        enabled:
-            true,
-
-        mode:
-            "fixed",
-
-        duration:
-            duration,
-
-        startTime:
-            0,
-
-        endTime:
-            cycleCount *
-            duration,
-
-        exposureTime:
-            averageExposure,
-
-        exposurePercentage:
-            averagePercentage,
-
-        episodes:
-            totalEpisodes,
-
-        cycles:
-            cycleCount,
-
-        totalExposureTime:
-            totalExposure,
-
-        totalEpisodes:
-            totalEpisodes
-
-    };
-
-}
-
-
-/*
-=========================================================
-CICLO MANUAL
-=========================================================
-*/
-
-function analyzeManualCycle(
-    frames,
-    threshold,
-    startTime,
-    endTime
-) {
-
-    const start =
-        Number(
-            startTime
-        );
-
-
-    const end =
-        Number(
-            endTime
-        );
-
-
-    if (
-        !Number.isFinite(start)
-        ||
-        !Number.isFinite(end)
-        ||
-        end <= start
-    ) {
-
-        return {
-
-            enabled:
-                false,
-
-            mode:
-                "manual",
-
-            duration:
-                null,
-
-            startTime:
-                null,
-
-            endTime:
-                null,
-
-            exposureTime:
-                null,
-
-            exposurePercentage:
-                null,
-
-            episodes:
-                null,
-
-            cycles:
-                0
-
-        };
-
-    }
-
-
-    const result =
-        analyzePeriod(
-            frames,
-            start,
-            end,
-            threshold
-        );
-
-
-    return {
-
-        enabled:
-            true,
-
-        mode:
-            "manual",
-
-        duration:
-            end -
-            start,
-
-        startTime:
-            start,
-
-        endTime:
-            end,
-
-        exposureTime:
-            result.exposureTime,
-
-        exposurePercentage:
-            result.exposurePercentage,
-
-        episodes:
-            result.episodes,
-
-        cycles:
-            1
-
-    };
-
 }
 
 
@@ -1297,6 +447,6 @@ function analyzeManualCycle(
 EXPORTACIÓN
 =========================================================
 */
+window.PostureAnalyzer = PostureAnalyzer;
 
-window.PostureAnalyzer =
-    PostureAnalyzer;
+console.log("OCRA Video Analyzer: posture_analyzer.js cargado correctamente");
