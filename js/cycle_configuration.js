@@ -1,21 +1,6 @@
 "use strict";
 
-/*
-=========================================================
-OCRA VIDEO ANALYZER
-CYCLE_CONFIGURATION.JS
-
-Cada vídeo puede utilizar UNO de estos tres modos:
-
-1. video  -> analizar todo el vídeo.
-2. manual -> analizar desde un instante inicial hasta
-             un instante final indicados por el usuario.
-3. fixed  -> analizar un ciclo de duración X segundos
-             comenzando en un instante indicado por el usuario.
-
-La configuración es independiente para cada vídeo.
-=========================================================
-*/
+/* Configuración temporal independiente para cada vídeo. */
 
 let cycleConfigurations = [];
 
@@ -59,6 +44,7 @@ function updateCycleConfigurationFromUI(videoIndex) {
     const modeInput = document.getElementById(`cycleMode_${videoIndex}`);
     const startInput = document.getElementById(`cycleStart_${videoIndex}`);
     const endInput = document.getElementById(`cycleEnd_${videoIndex}`);
+    const cycleStartInput = document.getElementById(`cycleCycleStart_${videoIndex}`);
     const durationInput = document.getElementById(`cycleDuration_${videoIndex}`);
 
     configuration.mode = modeInput?.value || "video";
@@ -66,44 +52,68 @@ function updateCycleConfigurationFromUI(videoIndex) {
     const start = Number(startInput?.value);
     configuration.startTime = Number.isFinite(start) && start >= 0 ? start : 0;
 
-    if (endInput && endInput.value !== "") {
-        const end = Number(endInput.value);
-        configuration.endTime = Number.isFinite(end) && end >= 0 ? end : null;
-    } else {
-        configuration.endTime = null;
-    }
+    const end = Number(endInput?.value);
+    configuration.endTime = Number.isFinite(end) && end >= 0 ? end : null;
 
-    if (durationInput && durationInput.value !== "") {
-        const duration = Number(durationInput.value);
-        configuration.cycleTime = Number.isFinite(duration) && duration > 0 ? duration : null;
-    } else {
-        configuration.cycleTime = null;
-    }
+    const cycleStart = Number(cycleStartInput?.value);
+    configuration.startTime = Number.isFinite(cycleStart) && cycleStart >= 0
+        ? cycleStart
+        : (configuration.mode === "fixed" ? 0 : configuration.startTime);
+
+    const duration = Number(durationInput?.value);
+    configuration.cycleTime = Number.isFinite(duration) && duration > 0 ? duration : null;
 }
 
 function validateCycleConfiguration(videoIndex) {
     const configuration = cycleConfigurations[videoIndex];
 
     if (!configuration || configuration.mode === "video") {
-        return { valid: true, mode: "video", usesFullVideo: true, startTime: 0, endTime: null, cycleTime: null };
+        return {
+            valid: true,
+            mode: "video",
+            usesFullVideo: true,
+            startTime: 0,
+            endTime: null,
+            cycleTime: null
+        };
     }
 
     const start = Number(configuration.startTime);
+
     if (!Number.isFinite(start) || start < 0) {
-        return { valid: false, message: `El inicio del Vídeo ${videoIndex + 1} debe ser un tiempo >= 0 segundos.` };
+        return {
+            valid: false,
+            message: `El inicio del Vídeo ${videoIndex + 1} debe ser >= 0 segundos.`
+        };
     }
 
     if (configuration.mode === "manual") {
         const end = Number(configuration.endTime);
+
         if (!Number.isFinite(end) || end <= start) {
-            return { valid: false, message: `El Vídeo ${videoIndex + 1} necesita un fin mayor que el inicio.` };
+            return {
+                valid: false,
+                message: `El Vídeo ${videoIndex + 1} necesita un momento final mayor que el inicial.`
+            };
         }
-        return { valid: true, mode: "manual", usesFullVideo: false, startTime: start, endTime: end, cycleTime: null };
+
+        return {
+            valid: true,
+            mode: "manual",
+            usesFullVideo: false,
+            startTime: start,
+            endTime: end,
+            cycleTime: null
+        };
     }
 
     const duration = Number(configuration.cycleTime);
+
     if (!Number.isFinite(duration) || duration <= 0) {
-        return { valid: false, message: `El Vídeo ${videoIndex + 1} necesita una duración de ciclo mayor que 0 segundos.` };
+        return {
+            valid: false,
+            message: `El Vídeo ${videoIndex + 1} necesita una duración de ciclo mayor que 0 segundos.`
+        };
     }
 
     return {
@@ -140,24 +150,33 @@ function renderCycleConfigurationUI(videoCount) {
                 </select>
             </div>
 
-            <div class="cycle-time-row cycle-manual-fields">
-                <label for="cycleStart_${index}">Momento inicial (s)</label>
-                <input type="number" id="cycleStart_${index}" min="0" step="0.001" value="${formatCycleTime(configuration.startTime)}">
+            <div id="manualCycleFields_${index}">
+                <div class="cycle-time-row">
+                    <label for="cycleStart_${index}">Momento inicial (s)</label>
+                    <input type="number" id="cycleStart_${index}" min="0" step="0.001" value="${formatCycleTime(configuration.startTime)}">
+                </div>
+
+                <div class="cycle-time-row">
+                    <label for="cycleEnd_${index}">Momento final (s)</label>
+                    <input type="number" id="cycleEnd_${index}" min="0" step="0.001" value="${configuration.endTime === null ? "" : formatCycleTime(configuration.endTime)}" placeholder="Fin del intervalo">
+                </div>
             </div>
 
-            <div class="cycle-time-row cycle-manual-fields">
-                <label for="cycleEnd_${index}">Momento final (s)</label>
-                <input type="number" id="cycleEnd_${index}" min="0" step="0.001" value="${configuration.endTime === null ? "" : formatCycleTime(configuration.endTime)}" placeholder="Fin del intervalo">
+            <div id="fixedCycleFields_${index}">
+                <div class="cycle-time-row">
+                    <label for="cycleCycleStart_${index}">Momento en que inicia el ciclo (s)</label>
+                    <input type="number" id="cycleCycleStart_${index}" min="0" step="0.001" value="${formatCycleTime(configuration.startTime)}" placeholder="Ej.: 37">
+                </div>
+
+                <div class="cycle-time-row">
+                    <label for="cycleDuration_${index}">Duración del ciclo (s)</label>
+                    <input type="number" id="cycleDuration_${index}" min="0.001" step="0.001" value="${configuration.cycleTime === null ? "" : formatCycleTime(configuration.cycleTime)}" placeholder="Ej.: 12">
+                </div>
             </div>
 
-            <div class="cycle-time-row cycle-fixed-fields">
-                <label for="cycleDuration_${index}">Duración del ciclo (s)</label>
-                <input type="number" id="cycleDuration_${index}" min="0.001" step="0.001" value="${configuration.cycleTime === null ? "" : formatCycleTime(configuration.cycleTime)}" placeholder="Ej.: 12">
-            </div>
-
-            <p class="cycle-help cycle-video-help">Se analizará desde el primer frame hasta el último del vídeo.</p>
-            <p class="cycle-help cycle-manual-help">Se analizará únicamente el intervalo comprendido entre el momento inicial y el momento final.</p>
-            <p class="cycle-help cycle-fixed-help">El ciclo comenzará exactamente en el momento indicado y tendrá la duración indicada.</p>
+            <p id="cycleVideoHelp_${index}">Se analizará desde el primer frame hasta el último del vídeo.</p>
+            <p id="cycleManualHelp_${index}">Se analizará únicamente entre el momento inicial y el momento final.</p>
+            <p id="cycleFixedHelp_${index}">El ciclo comenzará en el momento indicado y tendrá exactamente la duración indicada.</p>
         `;
 
         container.appendChild(block);
@@ -165,28 +184,34 @@ function renderCycleConfigurationUI(videoCount) {
         const modeInput = document.getElementById(`cycleMode_${index}`);
         const startInput = document.getElementById(`cycleStart_${index}`);
         const endInput = document.getElementById(`cycleEnd_${index}`);
+        const cycleStartInput = document.getElementById(`cycleCycleStart_${index}`);
         const durationInput = document.getElementById(`cycleDuration_${index}`);
 
-        const videoHelp = block.querySelector(".cycle-video-help");
-        const manualHelp = block.querySelector(".cycle-manual-help");
-        const fixedHelp = block.querySelector(".cycle-fixed-help");
-        const manualFields = block.querySelectorAll(".cycle-manual-fields");
-        const fixedFields = block.querySelectorAll(".cycle-fixed-fields");
+        const manualFields = document.getElementById(`manualCycleFields_${index}`);
+        const fixedFields = document.getElementById(`fixedCycleFields_${index}`);
+        const videoHelp = document.getElementById(`cycleVideoHelp_${index}`);
+        const manualHelp = document.getElementById(`cycleManualHelp_${index}`);
+        const fixedHelp = document.getElementById(`cycleFixedHelp_${index}`);
 
         const update = () => {
             const mode = modeInput?.value || "video";
-            manualFields.forEach(element => element.style.display = mode === "manual" ? "flex" : "none");
-            fixedFields.forEach(element => element.style.display = mode === "fixed" ? "flex" : "none");
-            if (videoHelp) videoHelp.style.display = mode === "video" ? "block" : "none";
-            if (manualHelp) manualHelp.style.display = mode === "manual" ? "block" : "none";
-            if (fixedHelp) fixedHelp.style.display = mode === "fixed" ? "block" : "none";
+
+            manualFields.style.display = mode === "manual" ? "block" : "none";
+            fixedFields.style.display = mode === "fixed" ? "block" : "none";
+
+            videoHelp.style.display = mode === "video" ? "block" : "none";
+            manualHelp.style.display = mode === "manual" ? "block" : "none";
+            fixedHelp.style.display = mode === "fixed" ? "block" : "none";
+
             updateCycleConfigurationFromUI(index);
         };
 
         modeInput?.addEventListener("change", update);
         startInput?.addEventListener("input", update);
         endInput?.addEventListener("input", update);
+        cycleStartInput?.addEventListener("input", update);
         durationInput?.addEventListener("input", update);
+
         update();
     }
 }
