@@ -1,0 +1,800 @@
+
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>
+    OCRA Video Analyzer
+</title>
+
+
+<style>
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+
+    body {
+
+        font-family:
+            "Segoe UI",
+            Arial,
+            Helvetica,
+            sans-serif;
+
+        min-height: 100vh;
+
+        background:
+            linear-gradient(
+                135deg,
+                #eef2f7 0%,
+                #dfe7f1 100%
+            );
+
+        color: #2d3748;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        padding: 30px;
+
+    }
+
+
+    .start-page {
+
+        width: 100%;
+
+        max-width: 900px;
+
+        background: #ffffff;
+
+        border-radius: 18px;
+
+        box-shadow:
+            0 15px 45px
+            rgba(0, 0, 0, 0.12);
+
+        overflow: hidden;
+
+    }
+
+
+    /* =========================================
+       CABECERA
+       ========================================= */
+
+    .header {
+
+        padding: 45px 50px 40px;
+
+        background:
+            linear-gradient(
+                135deg,
+                #1f4e79,
+                #2f75b5
+            );
+
+        color: white;
+
+        text-align: center;
+
+    }
+
+
+    .header h1 {
+
+        font-size: 38px;
+
+        font-weight: 700;
+
+        letter-spacing: 0.5px;
+
+        margin-bottom: 12px;
+
+    }
+
+
+    .header .version {
+
+        display: inline-block;
+
+        padding: 5px 14px;
+
+        margin-bottom: 22px;
+
+        border-radius: 20px;
+
+        background:
+            rgba(255, 255, 255, 0.16);
+
+        border:
+            1px solid
+            rgba(255, 255, 255, 0.25);
+
+        font-size: 13px;
+
+    }
+
+
+    .header p {
+
+        max-width: 650px;
+
+        margin: 0 auto;
+
+        font-size: 17px;
+
+        line-height: 1.6;
+
+        opacity: 0.95;
+
+    }
+
+
+    /* =========================================
+       CONTENIDO
+       ========================================= */
+
+    .content {
+
+        padding: 40px 50px 45px;
+
+        text-align: center;
+
+    }
+
+
+    .content h2 {
+
+        font-size: 24px;
+
+        color: #1f4e79;
+
+        margin-bottom: 15px;
+
+    }
+
+
+    .description {
+
+        max-width: 680px;
+
+        margin:
+            0 auto 32px;
+
+        font-size: 16px;
+
+        line-height: 1.7;
+
+        color: #5a6573;
+
+    }
+
+
+    /* =========================================
+       FUNCIONES
+       ========================================= */
+
+    .features {
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(
+                3,
+                1fr
+            );
+
+        gap: 18px;
+
+        margin-bottom: 30px;
+
+    }
+
+
+    .feature {
+
+        padding: 22px 18px;
+
+        background: #f7f9fc;
+
+        border:
+            1px solid #e3e9f0;
+
+        border-radius: 12px;
+
+    }
+
+
+    .feature-icon {
+
+        font-size: 28px;
+
+        margin-bottom: 10px;
+
+    }
+
+
+    .feature h3 {
+
+        font-size: 16px;
+
+        color: #2d3748;
+
+        margin-bottom: 7px;
+
+    }
+
+
+    .feature p {
+
+        font-size: 13px;
+
+        line-height: 1.5;
+
+        color: #687585;
+
+    }
+
+
+    /* =========================================
+       BOTONES
+       ========================================= */
+
+    .buttons {
+
+        display: flex;
+
+        flex-direction: column;
+
+        align-items: center;
+
+        gap: 12px;
+
+        margin-top: 10px;
+
+    }
+
+
+    .start-button,
+    .instructions-button {
+
+        display: inline-flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        gap: 10px;
+
+        width: 280px;
+
+        padding:
+            15px
+            30px;
+
+        border: none;
+
+        border-radius: 10px;
+
+        color: white;
+
+        text-decoration: none;
+
+        font-size: 17px;
+
+        font-weight: 600;
+
+        cursor: pointer;
+
+        transition:
+            background 0.2s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+
+    }
+
+
+    /* =========================================
+       BOTÓN INICIAR ANÁLISIS
+       ========================================= */
+
+    .start-button {
+
+        background: #1f4e79;
+
+        box-shadow:
+            0 5px 15px
+            rgba(
+                31,
+                78,
+                121,
+                0.25
+            );
+
+    }
+
+
+    .start-button:hover {
+
+        background: #173b5c;
+
+        transform:
+            translateY(-2px);
+
+        box-shadow:
+            0 8px 20px
+            rgba(
+                31,
+                78,
+                121,
+                0.30
+            );
+
+    }
+
+
+    /* =========================================
+       BOTÓN INSTRUCCIONES
+       ========================================= */
+
+    .instructions-button {
+
+        background: #ffffff;
+
+        color: #1f4e79;
+
+        border:
+            2px solid #1f4e79;
+
+        box-shadow:
+            0 4px 12px
+            rgba(
+                31,
+                78,
+                121,
+                0.10
+            );
+
+    }
+
+
+    .instructions-button:hover {
+
+        background: #eef5fb;
+
+        transform:
+            translateY(-2px);
+
+        box-shadow:
+            0 7px 17px
+            rgba(
+                31,
+                78,
+                121,
+                0.18
+            );
+
+    }
+
+
+    .start-button:active,
+    .instructions-button:active {
+
+        transform:
+            translateY(0);
+
+    }
+
+
+    .arrow {
+
+        font-size: 20px;
+
+        line-height: 1;
+
+    }
+
+
+    /* =========================================
+       INFORMACIÓN
+       ========================================= */
+
+    .info {
+
+        margin-top: 30px;
+
+        padding-top: 22px;
+
+        border-top:
+            1px solid #e5e9ee;
+
+        color: #7a8592;
+
+        font-size: 13px;
+
+        line-height: 1.6;
+
+    }
+
+
+    .info strong {
+
+        color: #596573;
+
+    }
+
+
+    /* =========================================
+       PIE
+       ========================================= */
+
+    .footer {
+
+        padding:
+            18px 30px;
+
+        background: #f7f9fc;
+
+        border-top:
+            1px solid #e5e9ee;
+
+        text-align: center;
+
+        font-size: 12px;
+
+        color: #8993a0;
+
+    }
+
+
+    /* =========================================
+       RESPONSIVE
+       ========================================= */
+
+    @media (
+        max-width: 700px
+    ) {
+
+        body {
+
+            padding: 15px;
+
+        }
+
+
+        .header {
+
+            padding:
+                35px 25px;
+
+        }
+
+
+        .header h1 {
+
+            font-size: 29px;
+
+        }
+
+
+        .header p {
+
+            font-size: 15px;
+
+        }
+
+
+        .content {
+
+            padding:
+                30px 25px 35px;
+
+        }
+
+
+        .features {
+
+            grid-template-columns:
+                1fr;
+
+        }
+
+
+        .start-button,
+        .instructions-button {
+
+            width: 100%;
+
+        }
+
+    }
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<main class="start-page">
+
+
+    <!-- =====================================
+         CABECERA
+         ===================================== -->
+
+    <header class="header">
+
+        <span class="version">
+
+            Versión 5
+
+        </span>
+
+
+        <h1>
+
+            OCRA Video Analyzer
+
+        </h1>
+
+
+        <p>
+
+            Análisis biomecánico de movimientos
+            mediante vídeo y datos de seguimiento
+            procedentes de Kinovea.
+
+        </p>
+
+    </header>
+
+
+    <!-- =====================================
+         CONTENIDO PRINCIPAL
+         ===================================== -->
+
+    <section class="content">
+
+
+        <h2>
+
+            Bienvenido
+
+        </h2>
+
+
+        <p class="description">
+
+            Esta herramienta permite analizar
+            uno o varios vídeos de forma
+            independiente, calcular los
+            parámetros biomecánicos y obtener
+            resultados temporales individuales
+            y globales.
+
+        </p>
+
+
+        <!-- =================================
+             FUNCIONES
+             ================================= -->
+
+        <div class="features">
+
+
+            <div class="feature">
+
+                <div class="feature-icon">
+
+                    🎥
+
+                </div>
+
+
+                <h3>
+
+                    Análisis de vídeos
+
+                </h3>
+
+
+                <p>
+
+                    Analice entre 1 y 4 vídeos
+                    de forma independiente.
+
+                </p>
+
+            </div>
+
+
+            <div class="feature">
+
+                <div class="feature-icon">
+
+                    📐
+
+                </div>
+
+
+                <h3>
+
+                    Análisis biomecánico
+
+                </h3>
+
+
+                <p>
+
+                    Obtenga las mediciones
+                    angulares a partir de los
+                    marcadores de Kinovea.
+
+                </p>
+
+            </div>
+
+
+            <div class="feature">
+
+                <div class="feature-icon">
+
+                    📊
+
+                </div>
+
+
+                <h3>
+
+                    Resultados
+
+                </h3>
+
+
+                <p>
+
+                    Consulte tiempos, porcentajes,
+                    episodios, medias y máximos.
+
+                </p>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- =================================
+             BOTONES
+             ================================= -->
+
+        <div class="buttons">
+
+
+            <!-- =============================
+                 INICIAR ANÁLISIS
+                 ============================= -->
+
+            <a
+                href="index.html"
+                class="start-button"
+            >
+
+                Iniciar análisis
+
+                <span class="arrow">
+
+                    →
+
+                </span>
+
+            </a>
+
+
+            <!-- =============================
+                 INSTRUCCIONES
+                 
+                 IMPORTANTE:
+                 El PDF se guarda en:
+
+                 instrucciones/
+                 OCRA_Video_Analyzer_Instrucciones.pdf
+
+                 Para actualizar las instrucciones
+                 solo hay que sustituir ese PDF.
+                 ============================= -->
+
+            <a
+                href="instrucciones/OCRA_Video_Analyzer_Instrucciones.pdf"
+                class="instructions-button"
+                target="_blank"
+                rel="noopener"
+            >
+
+                📖
+
+                Instrucciones de uso
+
+                <span class="arrow">
+
+                    ↗
+
+                </span>
+
+            </a>
+
+
+        </div>
+
+
+        <!-- =================================
+             INFORMACIÓN
+             ================================= -->
+
+        <div class="info">
+
+
+            <strong>
+
+                Antes de comenzar
+
+            </strong>
+
+
+            <br>
+
+
+            Prepare los archivos JSON
+            exportados desde Kinovea y
+            asegúrese de disponer de los
+            marcadores anatómicos necesarios
+            para el análisis.
+
+
+        </div>
+
+
+    </section>
+
+
+    <!-- =====================================
+         PIE
+         ===================================== -->
+
+    <footer class="footer">
+
+        OCRA Video Analyzer
+
+        ·
+
+        Análisis biomecánico mediante vídeo
+
+    </footer>
+
+
+</main>
+
+
+</body>
+
+</html>
+
