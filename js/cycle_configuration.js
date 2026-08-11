@@ -235,9 +235,39 @@ function getEffectiveCycleConfiguration(videoIndex) {
     return validateCycleConfiguration(videoIndex);
 }
 
+/*
+Compatibilidad con app.js:
+app.js utiliza getCycleConfig()/getSelectedCycleConfig().
+La configuración efectiva es la que debe llegar al analizador.
+*/
+function getCycleConfig(videoIndex) {
+    const effective = getEffectiveCycleConfiguration(videoIndex);
+
+    if (!effective || effective.valid !== true) {
+        throw new Error(
+            effective?.message ||
+            `Configuración temporal inválida para el Vídeo ${videoIndex + 1}.`
+        );
+    }
+
+    return {
+        enabled: effective.usesFullVideo !== true,
+        mode: effective.mode,
+        cycleTime: effective.cycleTime,
+        startTime: effective.startTime,
+        endTime: effective.endTime
+    };
+}
+
+function getSelectedCycleConfig(videoIndex) {
+    return getCycleConfig(videoIndex);
+}
+
 window.initializeCycleUI = initializeCycleUI;
 window.getCycleConfiguration = getCycleConfiguration;
 window.getAllCycleConfigurations = getAllCycleConfigurations;
 window.getEffectiveCycleConfiguration = getEffectiveCycleConfiguration;
+window.getCycleConfig = getCycleConfig;
+window.getSelectedCycleConfig = getSelectedCycleConfig;
 
 console.log("OCRA Video Analyzer: cycle_configuration.js cargado correctamente");
