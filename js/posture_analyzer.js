@@ -19,6 +19,10 @@ El vídeo completo se sigue leyendo y se conserva su duración real,
 pero los resultados temporales nunca utilizan frames fuera del
 período seleccionado.
 
+Los umbrales se leen del control actual de la interfaz en cada
+análisis. De esta forma, cambiar un umbral y volver a analizar
+modifica realmente tiempo, porcentaje y episodios.
+
 No realiza puntuación OCRA ni clasificación de riesgo.
 =========================================================
 */
@@ -51,11 +55,6 @@ const PostureAnalyzer = {
                 return;
             }
 
-            /*
-            =================================================
-            RESULTADO DEL PERÍODO SELECCIONADO
-            =================================================
-            */
             const analysisResult = analyzePeriod(
                 frames,
                 period.startTime,
@@ -63,15 +62,6 @@ const PostureAnalyzer = {
                 threshold
             );
 
-            /*
-            =================================================
-            RESULTADO DE CICLO
-            =================================================
-
-            Cuando se selecciona un período concreto, el ciclo
-            representa exactamente ese período. Así no se vuelve
-            a introducir accidentalmente todo el vídeo.
-            */
             let cycleResult = {
                 enabled: false,
                 mode: "video",
@@ -104,20 +94,13 @@ const PostureAnalyzer = {
                 description: getMeasurementDescription(name),
                 threshold,
                 unit: "deg",
-
-                /* Duración real del archivo/vídeo. */
                 videoDuration,
-
-                /* Período que realmente se ha analizado. */
                 analysisStartTime: period.startTime,
                 analysisEndTime: period.endTime,
                 analysisDuration: period.endTime - period.startTime,
-
-                /* Campos históricos utilizados por la interfaz. */
                 videoExposureTime: analysisResult.exposureTime,
                 videoExposurePercentage: analysisResult.exposurePercentage,
                 videoEpisodes: analysisResult.episodes,
-
                 cycle: cycleResult
             });
         });
@@ -134,11 +117,6 @@ const PostureAnalyzer = {
 };
 
 
-/*
-=========================================================
-RESOLVER PERÍODO DE ANÁLISIS
-=========================================================
-*/
 function resolveAnalysisPeriod(videoDuration, cycleConfig) {
 
     const duration = Math.max(0, Number(videoDuration) || 0);
@@ -192,6 +170,7 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
     };
 }
 
+
 function clampTime(value, min, max) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -201,11 +180,6 @@ function clampTime(value, min, max) {
 }
 
 
-/*
-=========================================================
-AGRUPAR MEDICIONES
-=========================================================
-*/
 function groupMeasurements(frames) {
 
     const groups = {};
@@ -234,11 +208,6 @@ function groupMeasurements(frames) {
 }
 
 
-/*
-=========================================================
-DURACIÓN DEL VÍDEO
-=========================================================
-*/
 function getVideoDuration(frames) {
 
     let maxTime = 0;
@@ -261,13 +230,34 @@ function getVideoDuration(frames) {
 
 /*
 =========================================================
-UMBRAL
+UMBRAL ACTUAL
+=========================================================
+
+Primero se consulta el campo visible de la interfaz.
+Esto evita que el análisis utilice accidentalmente el valor
+anterior almacenado en Thresholds si el usuario acaba de
+modificar un campo.
 =========================================================
 */
 function getThreshold(name) {
 
     if (typeof Thresholds === "undefined") {
         return null;
+    }
+
+    const input = document.getElementById(`threshold_${name}`);
+
+    if (input) {
+        const rawValue = String(input.value ?? "")
+            .trim()
+            .replace(",", ".");
+
+        const value = Number(rawValue);
+
+        if (Number.isFinite(value) && value >= 0) {
+            Thresholds[name].value = value;
+            return value;
+        }
     }
 
     const definition = Thresholds[name];
@@ -282,11 +272,6 @@ function getThreshold(name) {
 }
 
 
-/*
-=========================================================
-NOMBRE VISIBLE
-=========================================================
-*/
 function getMeasurementLabel(name) {
 
     if (
@@ -301,11 +286,6 @@ function getMeasurementLabel(name) {
 }
 
 
-/*
-=========================================================
-DESCRIPCIÓN
-=========================================================
-*/
 function getMeasurementDescription(name) {
 
     if (
@@ -320,18 +300,6 @@ function getMeasurementDescription(name) {
 }
 
 
-/*
-=========================================================
-ANALIZAR PERÍODO
-=========================================================
-
-Solo se seleccionan frames cuyo timestamp está dentro del
-intervalo solicitado.
-
-El tiempo acumulado solo se suma cuando el frame actual y el
-siguiente son válidos. Esto evita atravesar huecos de tracking.
-=========================================================
-*/
 function analyzePeriod(frames, startTime, endTime, threshold) {
 
     const start = Number(startTime);
@@ -426,7 +394,6 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
     }
 
     const periodDuration = Math.max(0, end - start);
-
     exposureTime = Math.min(exposureTime, periodDuration);
 
     const exposurePercentage =
@@ -442,11 +409,4 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
 }
 
 
-/*
-=========================================================
-EXPORTACIÓN
-=========================================================
-*/
 window.PostureAnalyzer = PostureAnalyzer;
-
-console.log("OCRA Video Analyzer: posture_analyzer.js cargado correctamente");
