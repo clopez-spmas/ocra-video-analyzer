@@ -97,7 +97,7 @@
             episodes.forEach(e => allEpisodes.push({...e, videoNumber: result.videoNumber}));
             html += `<h4>Vídeo ${escapeHtml(result.videoNumber)} — ${escapeHtml(result.fileName)}</h4>`;
             if (!episodes.length) {
-                html += `<p><strong>No se han detectado posturas mantenidas durante más de 4 segundos continuados en este vídeo.</strong></p>`;
+                html += `<div class="table-wrapper"><table class="sustained-posture-table"><thead><tr><th>Resultado</th></tr></thead><tbody><tr><td><strong>No se han detectado posturas mantenidas durante más de 4 segundos continuados en este vídeo.</strong></td></tr></tbody></table></div>`;
             } else {
                 html += `<div class="table-wrapper"><table class="sustained-posture-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>Ángulo inicio / medio / final</th><th>Inicio</th><th>Fin</th><th>Tiempo mantenido</th></tr></thead><tbody>`;
                 episodes.sort((a,b)=>Number(a.startTime)-Number(b.startTime)).forEach(e => { html += `<tr><td>${escapeHtml(e.label||e.measurement)}</td><td>${escapeHtml(e.bandLabel)}</td><td>${number(e.startAngle,1)}° / ${number(e.averageAngle,1)}° / ${number(e.endAngle,1)}°</td><td>${seconds(e.startTime)}</td><td>${seconds(e.endTime)}</td><td><strong>${seconds(e.duration)}</strong></td></tr>`; });
@@ -105,18 +105,19 @@
             }
         });
 
+        html += `<h3>Resultados globales</h3>`;
         if (!allEpisodes.length) {
-            html += `<p><strong>No se han detectado episodios de posturas mantenidas durante más de 4 segundos continuados en ninguna de las posturas analizadas: tronco, cabeza, rodillas o tobillos.</strong></p>`;
+            html += `<div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Resultado global</th></tr></thead><tbody><tr><td><strong>No se han detectado episodios de posturas mantenidas durante más de 4 segundos continuados en ninguna de las posturas analizadas: tronco, cabeza, rodillas o tobillos.</strong></td></tr></tbody></table></div>`;
         } else {
             const groups = {};
             allEpisodes.forEach(e => { const key=`${e.measurement}|${e.bandLower}|${e.bandUpper}`; if(!groups[key]) groups[key]={label:e.label||e.measurement,bandLabel:e.bandLabel,occurrences:0,totalTime:0,maxTime:0,videos:new Set(),details:[]}; const g=groups[key]; g.occurrences++; g.totalTime+=Number(e.duration)||0; g.maxTime=Math.max(g.maxTime,Number(e.duration)||0); g.videos.add(String(e.videoNumber)); g.details.push(`V${e.videoNumber}: ${seconds(e.startTime)}–${seconds(e.endTime)} (${number(e.averageAngle,1)}°)`); });
-            html += `<h3>Resultados globales</h3><div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>Veces</th><th>Tiempo total</th><th>Máximo episodio</th><th>Vídeos</th><th>Detalle</th></tr></thead><tbody>`;
+            html += `<div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>Veces</th><th>Tiempo total</th><th>Máximo episodio</th><th>Vídeos</th><th>Detalle</th></tr></thead><tbody>`;
             Object.values(groups).sort((a,b)=>b.totalTime-a.totalTime).forEach(g=> { html += `<tr><td>${escapeHtml(g.label)}</td><td>${escapeHtml(g.bandLabel)}</td><td>${g.occurrences}</td><td>${seconds(g.totalTime)}</td><td>${seconds(g.maxTime)}</td><td>${escapeHtml(Array.from(g.videos).sort((a,b)=>Number(a)-Number(b)).join(", "))}</td><td>${escapeHtml(g.details.join(" | "))}</td></tr>`; });
             html += `</tbody></table></div>`;
         }
+        html += `<h4>Rangos y franjas estudiados</h4>${studyTable("Analizado")}<p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p>`;
 
-        html += `<h4>Rangos y franjas estudiados</h4>${studyTable("Analizado")}<p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p><hr><h3>Frecuencia de adopción de posturas</h3><p>Se calcula cuántas veces se adopta cada postura dentro de las franjas angulares estudiadas. Cada adopción se contabiliza al entrar en una franja; mientras se permanece en la misma franja no se vuelve a contar. La frecuencia se expresa en número de adopciones por minuto y se calcula utilizando los tiempos del JSON de Kinovea.</p>`;
-
+        html += `<hr><h3>Frecuencia de adopción de posturas</h3><p>Se calcula cuántas veces se adopta cada postura dentro de las franjas angulares estudiadas. Cada adopción se contabiliza al entrar en una franja; mientras se permanece en la misma franja no se vuelve a contar. La frecuencia se expresa en número de adopciones por minuto y se calcula utilizando los tiempos del JSON de Kinovea.</p>`;
         const allFrequencyRows = [];
         safeResults.forEach(result => {
             const rows = getFrequencyResults(result);
@@ -124,25 +125,18 @@
             html += `<h4>Vídeo ${escapeHtml(result.videoNumber)} — ${escapeHtml(result.fileName)}</h4>${frequencyTable(rows)}${rows.length ? "" : `<p><strong>No se han detectado adopciones de posturas en las franjas estudiadas durante el período analizado.</strong></p>`}`;
         });
 
-        const groupsF = {};
-        allFrequencyRows.forEach(row => { const key=`${row.measurement}|${row.bandLower}|${row.bandUpper}`; if(!groupsF[key]) groupsF[key]={label:row.label,bandLabel:row.bandLabel,occurrences:0,duration:0,videos:new Set()}; groupsF[key].occurrences += Number(row.occurrences)||0; groupsF[key].videos.add(String(row.videoNumber)); });
-        safeResults.forEach(result => {
-            const duration = Number(result.postureResults?.analysisDuration)||0;
-            const measurements = new Set(getFrequencyResults(result).map(row=>row.measurement));
-            measurements.forEach(measurement => getFrequencyResults(result).filter(row=>row.measurement===measurement).forEach(row=> { const key=`${row.measurement}|${row.bandLower}|${row.bandUpper}`; if(groupsF[key]) groupsF[key].duration += duration; }));
-        });
-
         html += `<h3>Resultados globales</h3>`;
         if (!allFrequencyRows.length) {
-            html += frequencyTable([], "No se ha detectado");
-            html += `<p><strong>No se han detectado adopciones de posturas en las franjas estudiadas durante el conjunto de vídeos analizados.</strong></p>`;
+            html += `<div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Resultado global</th></tr></thead><tbody><tr><td><strong>No se han detectado adopciones de posturas en las franjas estudiadas durante el conjunto de vídeos analizados.</strong></td></tr></tbody></table></div>`;
         } else {
+            const groupsF = {};
+            allFrequencyRows.forEach(row => { const key=`${row.measurement}|${row.bandLower}|${row.bandUpper}`; if(!groupsF[key]) groupsF[key]={label:row.label,bandLabel:row.bandLabel,occurrences:0,duration:0,videos:new Set()}; groupsF[key].occurrences += Number(row.occurrences)||0; groupsF[key].videos.add(String(row.videoNumber)); });
+            safeResults.forEach(result => { const duration=Number(result.postureResults?.analysisDuration)||0; const measurements=new Set(getFrequencyResults(result).map(row=>row.measurement)); measurements.forEach(measurement=>getFrequencyResults(result).filter(row=>row.measurement===measurement).forEach(row=>{const key=`${row.measurement}|${row.bandLower}|${row.bandUpper}`; if(groupsF[key]) groupsF[key].duration += duration;})); });
             html += `<div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>N.º adopciones</th><th>Frecuencia</th><th>Vídeos</th></tr></thead><tbody>`;
-            Object.values(groupsF).sort((a,b)=>(b.duration?b.occurrences/b.duration:0)-(a.duration?a.occurrences/a.duration:0)).forEach(g=> { const f=g.duration>0?g.occurrences/g.duration*60:0; html += `<tr><td>${escapeHtml(g.label)}</td><td>${escapeHtml(g.bandLabel)}</td><td>${g.occurrences}</td><td><strong>${f.toFixed(2)} / min</strong></td><td>${escapeHtml(Array.from(g.videos).sort((a,b)=>Number(a)-Number(b)).join(", "))}</td></tr>`; });
+            Object.values(groupsF).sort((a,b)=>(b.duration?b.occurrences/b.duration:0)-(a.duration?a.occurrences/a.duration:0)).forEach(g=>{const f=g.duration>0?g.occurrences/g.duration*60:0; html += `<tr><td>${escapeHtml(g.label)}</td><td>${escapeHtml(g.bandLabel)}</td><td>${g.occurrences}</td><td><strong>${f.toFixed(2)} / min</strong></td><td>${escapeHtml(Array.from(g.videos).sort((a,b)=>Number(a)-Number(b)).join(", "))}</td></tr>`;});
             html += `</tbody></table></div>`;
         }
-
-        html += `<h4>Rangos y franjas estudiados</h4>${frequencyTable(allFrequencyRows.length ? allFrequencyRows : [], allFrequencyRows.length ? "No se ha detectado" : "No se ha detectado")}`;
+        html += `<h4>Rangos y franjas estudiados</h4>${frequencyTable(allFrequencyRows,"No se ha detectado")}`;
         return html;
     }
 
