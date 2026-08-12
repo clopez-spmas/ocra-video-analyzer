@@ -54,8 +54,8 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
     if (!Array.isArray(frames) || frames.length === 0) return [];
 
     /*
-    No eliminamos los frames inválidos antes del recorrido:
-    un dato inválido rompe la continuidad de una postura.
+    Los frames inválidos NO se eliminan: rompen la continuidad.
+    El tiempo siempre procede de timestamp del JSON de Kinovea.
     */
     const orderedFrames = frames
         .filter(frame => frame && Number.isFinite(Number(frame.timestamp)))
@@ -135,11 +135,7 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
 
         const gap = time - current.previousTime;
 
-        /*
-        Un salto temporal no puede rellenarse como si la postura
-        hubiera continuado durante el hueco.
-        */
-        if (!sameBand || !Number.isFinite(gap) || gap <= 0 || gap > 1) {
+        if (!sameBand || !Number.isFinite(gap) || gap <= 0) {
             closeEpisode(current.previousTime);
 
             current = {
@@ -171,7 +167,6 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
 function analyzeAllSustainedPostures(biomechanicalFrames) {
 
     const grouped = {};
-
     if (!Array.isArray(biomechanicalFrames)) return [];
 
     biomechanicalFrames.forEach(frame => {
