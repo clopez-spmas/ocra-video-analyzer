@@ -3,10 +3,13 @@
 /* =========================================================
    OCRA VIDEO ANALYZER
    Presentación visual del análisis temporal
-   No modifica ningún cálculo: solo organiza los resultados.
+   Solo organiza visualmente los resultados.
 ========================================================= */
 
 (function () {
+
+    let rebuilding = false;
+    let timer = null;
 
     function createCard(className) {
         const card = document.createElement("div");
@@ -27,7 +30,7 @@
 
     function buildTemporalLayout() {
         const container = document.getElementById("postureResults");
-        if (!container || container.dataset.temporalLayoutApplied === "true") return;
+        if (!container || rebuilding) return;
 
         const children = Array.from(container.children);
         const frequencyTitle = children.find(
@@ -51,10 +54,11 @@
 
         if (!maintainedNodes.length || !frequencyNodes.length) return;
 
+        rebuilding = true;
+
         const maintainedBlock = createCard("temporal-maintained-block");
         const frequencyBlock = createCard("temporal-frequency-block");
 
-        /* ---------- POSTURAS MANTENIDAS ---------- */
         let currentCard = null;
         maintainedNodes.forEach(node => {
             if (node.tagName === "H4" && /^Vídeo\s+/i.test(node.textContent.trim())) {
@@ -78,45 +82,41 @@
                 return;
             }
 
-            if (currentCard) {
-                currentCard.appendChild(node);
-            } else {
-                maintainedBlock.appendChild(node);
-            }
+            if (currentCard) currentCard.appendChild(node);
+            else maintainedBlock.appendChild(node);
         });
 
-        /* ---------- FRECUENCIA ---------- */
-        let frequencyCard = null;
+        currentCard = null;
         frequencyNodes.forEach(node => {
             if (node.tagName === "H4" && /^Vídeo\s+/i.test(node.textContent.trim())) {
-                frequencyCard = createCard("temporal-video-card");
-                frequencyBlock.appendChild(frequencyCard);
-                frequencyCard.appendChild(node);
+                currentCard = createCard("temporal-video-card");
+                frequencyBlock.appendChild(currentCard);
+                currentCard.appendChild(node);
                 return;
             }
 
             if (node.tagName === "H3" && node.textContent.trim() === "Resultados globales") {
-                frequencyCard = createCard("temporal-global-card");
-                frequencyBlock.appendChild(frequencyCard);
-                frequencyCard.appendChild(node);
+                currentCard = createCard("temporal-global-card");
+                frequencyBlock.appendChild(currentCard);
+                currentCard.appendChild(node);
                 return;
             }
 
-            if (frequencyCard) {
-                frequencyCard.appendChild(node);
-            } else {
-                frequencyBlock.appendChild(node);
-            }
+            if (currentCard) currentCard.appendChild(node);
+            else frequencyBlock.appendChild(node);
         });
 
         container.replaceChildren(maintainedBlock, frequencyBlock);
         container.dataset.temporalLayoutApplied = "true";
+        rebuilding = false;
     }
 
     function scheduleLayout() {
-        requestAnimationFrame(() => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+            timer = null;
             buildTemporalLayout();
-        });
+        }, 0);
     }
 
     function init() {
@@ -124,7 +124,8 @@
         if (!container) return;
 
         const observer = new MutationObserver(() => {
-            if (container.dataset.temporalLayoutApplied === "true") return;
+            if (rebuilding) return;
+            container.dataset.temporalLayoutApplied = "false";
             scheduleLayout();
         });
 
