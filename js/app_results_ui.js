@@ -2,6 +2,19 @@
 
 (function () {
 
+    const SUSTAINED_STUDY = [
+        ["Tronco - flexión / extensión", "0°–180°", "10°"],
+        ["Tronco - inclinación lateral", "0°–180°", "2°"],
+        ["Tronco - rotación axial", "0°–180°", "2°"],
+        ["Cabeza - flexión / extensión", "0°–180°", "5°"],
+        ["Cabeza - lateralización", "0°–180°", "2°"],
+        ["Cabeza - rotación axial", "0°–180°", "2°"],
+        ["Rodilla izquierda - flexión", "0°–180°", "10°"],
+        ["Rodilla derecha - flexión", "0°–180°", "10°"],
+        ["Tobillo izquierdo", "0°–180°", "2°"],
+        ["Tobillo derecho", "0°–180°", "2°"]
+    ];
+
     function escapeHtml(value) {
         return String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -21,6 +34,52 @@
         return Number.isFinite(n) ? `${n.toFixed(2)} s` : "-";
     }
 
+    function getPostureResults(result) {
+        return result && result.postureResults && Array.isArray(result.postureResults.measurements)
+            ? result.postureResults.measurements : [];
+    }
+
+    function getSustainedResults(result) {
+        return result && result.postureResults && Array.isArray(result.postureResults.sustainedPostures)
+            ? result.postureResults.sustainedPostures : [];
+    }
+
+    function sustainedStudyTable(statusText) {
+        const rows = SUSTAINED_STUDY.map(item => `
+            <tr>
+                <td>${escapeHtml(item[0])}</td>
+                <td>${item[1]}</td>
+                <td>${item[2]}</td>
+                <td>${escapeHtml(statusText)}</td>
+            </tr>
+        `).join("");
+
+        return `
+            <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
+            <p>Se estudia el rango angular de 0° a 180°. Los ángulos se agrupan en franjas antes de determinar si una postura permanece en la misma franja durante más de 4 segundos continuados.</p>
+            <div class="table-wrapper">
+                <table class="sustained-posture-table">
+                    <thead>
+                        <tr>
+                            <th>Zona / movimiento</th>
+                            <th>Rango angular estudiado</th>
+                            <th>Tamaño de franja</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p>
+        `;
+    }
+
+    function renderSustainedPending() {
+        const container = document.getElementById("postureResults");
+        if (!container) return;
+        container.innerHTML = sustainedStudyTable("Pendiente de análisis");
+    }
+
     window.updateFileInfo = function (file, videoIndex) {
         if (!file) return;
         const nameElement = document.getElementById(`fileName_${videoIndex}`);
@@ -34,16 +93,6 @@
             else sizeElement.textContent = `${(size / (1024 * 1024)).toFixed(2)} MB`;
         }
     };
-
-    function getPostureResults(result) {
-        return result && result.postureResults && Array.isArray(result.postureResults.measurements)
-            ? result.postureResults.measurements : [];
-    }
-
-    function getSustainedResults(result) {
-        return result && result.postureResults && Array.isArray(result.postureResults.sustainedPostures)
-            ? result.postureResults.sustainedPostures : [];
-    }
 
     window.showAnalysisInformation = function (results) {
         const container = document.getElementById("analysisInformation");
@@ -107,7 +156,7 @@
         });
 
         if (!episodes.length) {
-            container.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Resultado</th></tr></thead><tbody><tr><td>No se han detectado posturas mantenidas durante más de 4 segundos en el período analizado.</td></tr></tbody></table></div>`;
+            container.innerHTML = sustainedStudyTable("No se han detectado posturas mantenidas durante más de 4 segundos continuados");
             return;
         }
 
@@ -117,12 +166,10 @@
             <td>${escapeHtml(episode.videoNumber)}</td>
             <td>${escapeHtml(episode.label)}</td>
             <td>${escapeHtml(episode.bandLabel)}</td>
-            <td>${number(episode.startAngle, 2)}°</td>
-            <td>${number(episode.averageAngle, 2)}°</td>
-            <td>${number(episode.endAngle, 2)}°</td>
+            <td>${number(episode.startAngle, 2)}°<br>${number(episode.averageAngle, 2)}°<br>${number(episode.endAngle, 2)}°</td>
             <td>${seconds(episode.startTime)}</td>
             <td>${seconds(episode.endTime)}</td>
-            <td>${seconds(episode.duration)}</td>
+            <td><strong>${seconds(episode.duration)}</strong></td>
         </tr>`).join("");
 
         const groups = {};
@@ -145,18 +192,29 @@
         </tr>`).join("");
 
         container.innerHTML = `
-            <h3>Detalle de posturas mantenidas por vídeo</h3>
+            <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
+            <p>Se han detectado episodios estrictamente superiores a 4 segundos dentro de una misma franja angular.</p>
+            <h4>Detalle por vídeo</h4>
             <div class="table-wrapper"><table>
-                <thead><tr><th>Vídeo</th><th>Postura</th><th>Franja</th><th>Ángulo inicial</th><th>Ángulo medio</th><th>Ángulo final</th><th>Inicio</th><th>Fin</th><th>Tiempo mantenido</th></tr></thead>
+                <thead><tr><th>Vídeo</th><th>Postura</th><th>Franja</th><th>Ángulo<br>inicio / medio / final</th><th>Inicio</th><th>Fin</th><th>Tiempo mantenido</th></tr></thead>
                 <tbody>${detailRows}</tbody>
             </table></div>
-            <h3>Resumen global de posturas mantenidas</h3>
+            <h4>Resumen global</h4>
             <div class="table-wrapper"><table>
                 <thead><tr><th>Postura</th><th>Franja</th><th>N.º veces</th><th>Tiempo total</th><th>Mayor episodio</th><th>Vídeos</th></tr></thead>
                 <tbody>${globalRows}</tbody>
-            </table></div>`;
+            </table></div>
+            <h4>Rangos y franjas estudiados</h4>
+            ${sustainedStudyTable("Analizado")}
+        `;
     };
 
     window.renderSustainedPostures = function () { return true; };
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", renderSustainedPending);
+    } else {
+        renderSustainedPending();
+    }
 
 })();
