@@ -1,7 +1,10 @@
 "use strict";
 
 /* =========================================================
-   RESULTADOS DE LA APLICACIÓN
+   RESULTADOS Y FUNCIONES AUXILIARES DE LA APLICACIÓN
+
+   Mantiene separada la presentación de resultados del flujo
+   principal de app.js. No modifica los cálculos.
    ========================================================= */
 
 (function () {
@@ -25,14 +28,10 @@
         return Number.isFinite(n) ? `${n.toFixed(2)} s` : "-";
     }
 
-    function getPostureResults(result) {
-        return result && result.postureResults &&
-            Array.isArray(result.postureResults.measurements)
-            ? result.postureResults.measurements
-            : [];
-    }
+    /* =====================================================
+       INFORMACIÓN DEL ARCHIVO SELECCIONADO
+       ===================================================== */
 
-    /* Información del archivo seleccionado. */
     window.updateFileInfo = function (file, videoIndex) {
         if (!file) return;
 
@@ -40,20 +39,35 @@
         const sizeElement = document.getElementById(`fileSize_${videoIndex}`);
 
         if (nameElement) {
-            nameElement.textContent = file.name || "-";
+            nameElement.textContent = file.name;
         }
 
         if (sizeElement) {
-            const bytes = Number(file.size);
-            if (Number.isFinite(bytes)) {
-                const mb = bytes / (1024 * 1024);
-                sizeElement.textContent = `${mb.toFixed(2)} MB`;
+            const size = Number(file.size);
+
+            if (Number.isFinite(size)) {
+                if (size < 1024) {
+                    sizeElement.textContent = `${size} bytes`;
+                }
+                else if (size < 1024 * 1024) {
+                    sizeElement.textContent = `${(size / 1024).toFixed(1)} KB`;
+                }
+                else {
+                    sizeElement.textContent = `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                }
             }
             else {
                 sizeElement.textContent = "-";
             }
         }
     };
+
+    function getPostureResults(result) {
+        return result && result.postureResults &&
+            Array.isArray(result.postureResults.measurements)
+            ? result.postureResults.measurements
+            : [];
+    }
 
     window.showAnalysisInformation = function (results) {
         const container = document.getElementById("analysisInformation");
@@ -172,12 +186,16 @@
             </table></div>`;
     };
 
-    window.showCombinedPostureResults = function () {
+    window.showCombinedPostureResults = function (results) {
         const container = document.getElementById("postureResults");
         if (!container) return;
 
         if (!Array.isArray(window.__sustainedPostureRun)) {
             window.__sustainedPostureRun = [];
+        }
+
+        if (typeof window.renderSustainedPostures === "function") {
+            window.renderSustainedPostures();
         }
     };
 
