@@ -112,6 +112,21 @@ const PostureAnalyzer = {
             sustainedPostures = SustainedPostures.analyzeAll(selectedFrames);
         }
 
+        /*
+        Mantiene una copia de los resultados de posturas mantenidas
+        para que la interfaz pueda construir la tabla individual y
+        la tabla global sin alterar el resto del análisis.
+        */
+        if (!Array.isArray(window.__sustainedPostureRun)) {
+            window.__sustainedPostureRun = [];
+        }
+
+        window.__sustainedPostureRun.push({
+            sustainedPostures,
+            analysisStartTime: period.startTime,
+            analysisEndTime: period.endTime
+        });
+
         return {
             videoDuration,
             analysisStartTime: period.startTime,
