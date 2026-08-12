@@ -6,22 +6,14 @@ OCRA VIDEO ANALYZER
 POSTURE ANALYZER
 =========================================================
 
-Analiza la exposición temporal de cada medición.
+Analiza exposición temporal y posturas mantenidas.
 
-REGLA PRINCIPAL:
-
-- "Todo el vídeo" -> se analiza todo el vídeo.
-- "Manual" -> se analiza exclusivamente el intervalo indicado.
-- "Fijo" -> se analiza exclusivamente el intervalo que comienza
-  en el momento indicado y dura lo indicado.
-
-El vídeo completo se sigue leyendo y se conserva su duración real,
-pero los resultados temporales nunca utilizan frames fuera del
-período seleccionado.
-
-Los umbrales se leen del control actual de la interfaz en cada
-análisis. De esta forma, cambiar un umbral y volver a analizar
-modifica realmente tiempo, porcentaje y episodios.
+Posturas mantenidas:
+- Tronco: franjas de 10°.
+- Cabeza: franjas de 5°.
+- Solo se consideran episodios estrictamente superiores a 4 s.
+- Se conserva inicio, final, duración y ángulos del episodio.
+- Si una misma franja aparece varias veces, cada episodio se conserva.
 
 No realiza puntuación OCRA ni clasificación de riesgo.
 =========================================================
@@ -37,7 +29,8 @@ const PostureAnalyzer = {
                 analysisStartTime: 0,
                 analysisEndTime: 0,
                 analysisDuration: 0,
-                measurements: []
+                measurements: [],
+                sustainedPostures: []
             };
         }
 
@@ -105,13 +98,28 @@ const PostureAnalyzer = {
             });
         });
 
+        let sustainedPostures = [];
+
+        if (typeof SustainedPostures !== "undefined") {
+            const selectedFrames = biomechanicalFrames.filter(frame => {
+                if (!frame) return false;
+                const time = Number(frame.timestamp);
+                return Number.isFinite(time) &&
+                    time >= period.startTime &&
+                    time <= period.endTime;
+            });
+
+            sustainedPostures = SustainedPostures.analyzeAll(selectedFrames);
+        }
+
         return {
             videoDuration,
             analysisStartTime: period.startTime,
             analysisEndTime: period.endTime,
             analysisDuration: period.endTime - period.startTime,
             analysisMode: period.mode,
-            measurements: results
+            measurements: results,
+            sustainedPostures
         };
     }
 };
@@ -122,11 +130,7 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
     const duration = Math.max(0, Number(videoDuration) || 0);
 
     if (!cycleConfig || cycleConfig.enabled !== true) {
-        return {
-            mode: "video",
-            startTime: 0,
-            endTime: duration
-        };
+        return { mode: "video", startTime: 0, endTime: duration };
     }
 
     const mode = ["manual", "fixed"].includes(cycleConfig.mode)
@@ -138,11 +142,7 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
         const requestedEnd = Number(cycleConfig.endTime);
 
         if (!Number.isFinite(requestedEnd) || requestedEnd <= start) {
-            return {
-                mode: "video",
-                startTime: 0,
-                endTime: duration
-            };
+            return { mode: "video", startTime: 0, endTime: duration };
         }
 
         return {
@@ -156,11 +156,7 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
     const cycleTime = Number(cycleConfig.cycleTime);
 
     if (!Number.isFinite(cycleTime) || cycleTime <= 0 || start >= duration) {
-        return {
-            mode: "video",
-            startTime: 0,
-            endTime: duration
-        };
+        return { mode: "video", startTime: 0, endTime: duration };
     }
 
     return {
@@ -173,35 +169,23 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
 
 function clampTime(value, min, max) {
     const number = Number(value);
-    if (!Number.isFinite(number)) {
-        return min;
-    }
+    if (!Number.isFinite(number)) return min;
     return Math.min(Math.max(number, min), max);
 }
 
 
 function groupMeasurements(frames) {
-
     const groups = {};
 
     frames.forEach(frame => {
-        if (!frame || !frame.name) {
-            return;
-        }
+        if (!frame || !frame.name) return;
 
-        const name = frame.name;
-
-        if (!groups[name]) {
-            groups[name] = [];
-        }
-
-        groups[name].push(frame);
+        if (!groups[frame.name]) groups[frame.name] = [];
+        groups[frame.name].push(frame);
     });
 
     Object.keys(groups).forEach(name => {
-        groups[name].sort((a, b) =>
-            Number(a.timestamp) - Number(b.timestamp)
-        );
+        groups[name].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
     });
 
     return groups;
@@ -209,41 +193,22 @@ function groupMeasurements(frames) {
 
 
 function getVideoDuration(frames) {
-
     let maxTime = 0;
 
     frames.forEach(frame => {
-        if (!frame) {
-            return;
-        }
+        if (!frame) return;
 
         const time = Number(frame.timestamp);
-
-        if (Number.isFinite(time) && time > maxTime) {
-            maxTime = time;
-        }
+        if (Number.isFinite(time) && time > maxTime) maxTime = time;
     });
 
     return maxTime;
 }
 
 
-/*
-=========================================================
-UMBRAL ACTUAL
-=========================================================
-
-Primero se consulta el campo visible de la interfaz.
-Esto evita que el análisis utilice accidentalmente el valor
-anterior almacenado en Thresholds si el usuario acaba de
-modificar un campo.
-=========================================================
-*/
 function getThreshold(name) {
 
-    if (typeof Thresholds === "undefined") {
-        return null;
-    }
+    if (typeof Thresholds === "undefined") return null;
 
     const input = document.getElementById(`threshold_${name}`);
 
@@ -261,41 +226,25 @@ function getThreshold(name) {
     }
 
     const definition = Thresholds[name];
-
-    if (!definition) {
-        return null;
-    }
+    if (!definition) return null;
 
     const value = Number(definition.value);
-
     return Number.isFinite(value) ? value : null;
 }
 
 
 function getMeasurementLabel(name) {
-
-    if (
-        typeof Thresholds !== "undefined" &&
-        Thresholds[name] &&
-        Thresholds[name].label
-    ) {
+    if (typeof Thresholds !== "undefined" && Thresholds[name] && Thresholds[name].label) {
         return Thresholds[name].label;
     }
-
     return name;
 }
 
 
 function getMeasurementDescription(name) {
-
-    if (
-        typeof Thresholds !== "undefined" &&
-        Thresholds[name] &&
-        Thresholds[name].description
-    ) {
+    if (typeof Thresholds !== "undefined" && Thresholds[name] && Thresholds[name].description) {
         return Thresholds[name].description;
     }
-
     return name;
 }
 
@@ -305,38 +254,19 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
     const start = Number(startTime);
     const end = Number(endTime);
 
-    if (
-        !Number.isFinite(start) ||
-        !Number.isFinite(end) ||
-        end <= start
-    ) {
-        return {
-            exposureTime: 0,
-            exposurePercentage: 0,
-            episodes: 0
-        };
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        return { exposureTime: 0, exposurePercentage: 0, episodes: 0 };
     }
 
     const selected = frames.filter(frame => {
-        if (!frame) {
-            return false;
-        }
+        if (!frame) return false;
 
         const time = Number(frame.timestamp);
-
-        return (
-            Number.isFinite(time) &&
-            time >= start &&
-            time <= end
-        );
+        return Number.isFinite(time) && time >= start && time <= end;
     });
 
     if (selected.length === 0) {
-        return {
-            exposureTime: 0,
-            exposurePercentage: 0,
-            episodes: 0
-        };
+        return { exposureTime: 0, exposurePercentage: 0, episodes: 0 };
     }
 
     let exposureTime = 0;
@@ -349,8 +279,7 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
         const currentTime = Number(current.timestamp);
         const currentValue = Number(current.value);
 
-        const currentValid =
-            current.valid === true &&
+        const currentValid = current.valid === true &&
             Number.isFinite(currentValue) &&
             Number.isFinite(currentTime);
 
@@ -366,28 +295,20 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
             inExposure = true;
         }
 
-        if (!isAbove) {
-            inExposure = false;
-        }
+        if (!isAbove) inExposure = false;
 
         if (i < selected.length - 1 && isAbove) {
-
             const next = selected[i + 1];
             const nextTime = Number(next.timestamp);
             const nextValue = Number(next.value);
 
-            const nextValid =
-                next.valid === true &&
+            const nextValid = next.valid === true &&
                 Number.isFinite(nextValue) &&
                 Number.isFinite(nextTime);
 
             if (nextValid) {
-                let interval = nextTime - currentTime;
-                interval = Math.max(0, interval);
-
-                const remaining = Math.max(0, end - currentTime);
-                interval = Math.min(interval, remaining);
-
+                let interval = Math.max(0, nextTime - currentTime);
+                interval = Math.min(interval, Math.max(0, end - currentTime));
                 exposureTime += interval;
             }
         }
@@ -396,16 +317,11 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
     const periodDuration = Math.max(0, end - start);
     exposureTime = Math.min(exposureTime, periodDuration);
 
-    const exposurePercentage =
-        periodDuration > 0
-            ? (exposureTime / periodDuration) * 100
-            : 0;
+    const exposurePercentage = periodDuration > 0
+        ? (exposureTime / periodDuration) * 100
+        : 0;
 
-    return {
-        exposureTime,
-        exposurePercentage,
-        episodes
-    };
+    return { exposureTime, exposurePercentage, episodes };
 }
 
 
