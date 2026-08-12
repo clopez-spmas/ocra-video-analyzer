@@ -3,7 +3,8 @@
 /* =========================================================
    OCRA VIDEO ANALYZER
    Presentación visual del análisis temporal
-   Solo organiza visualmente los resultados.
+   Estructura equivalente a Resultados biomecánicos.
+   No modifica ningún cálculo.
 ========================================================= */
 
 (function () {
@@ -11,111 +12,89 @@
     let rebuilding = false;
     let timer = null;
 
-    function createCard(className) {
-        const card = document.createElement("div");
-        card.className = `temporal-result-card ${className || ""}`.trim();
-        return card;
+    function card(className) {
+        const el = document.createElement("div");
+        el.className = `temporal-result-card ${className || ""}`.trim();
+        return el;
     }
 
-    function moveUntil(node, stop) {
-        const nodes = [];
-        let current = node;
-        while (current && current !== stop) {
-            const next = current.nextSibling;
-            nodes.push(current);
-            current = next;
-        }
-        return nodes;
+    function takeUntil(nodes, start, end) {
+        return nodes.slice(start, end);
     }
 
-    function buildTemporalLayout() {
+    function build() {
         const container = document.getElementById("postureResults");
         if (!container || rebuilding) return;
 
-        const children = Array.from(container.children);
-        const frequencyTitle = children.find(
+        const nodes = Array.from(container.children);
+        const frequencyIndex = nodes.findIndex(
             el => el.tagName === "H3" && el.textContent.trim() === "Frecuencia de adopción de posturas"
         );
+        if (frequencyIndex < 0) return;
 
-        if (!frequencyTitle) return;
+        const maintained = nodes.slice(0, frequencyIndex);
+        const frequency = nodes.slice(frequencyIndex);
 
-        const frequencySeparator = frequencyTitle.previousElementSibling;
-        const frequencyStart = frequencySeparator && frequencySeparator.tagName === "HR"
-            ? frequencySeparator
-            : frequencyTitle;
+        const maintainedGlobalIndex = maintained.findIndex(
+            el => el.tagName === "H3" && el.textContent.trim() === "Resultados globales"
+        );
 
-        const maintainedNodes = moveUntil(container.firstElementChild, frequencyStart);
-        const frequencyNodes = [];
-        let current = frequencyStart.nextElementSibling;
-        while (current) {
-            frequencyNodes.push(current);
-            current = current.nextElementSibling;
-        }
+        const frequencyGlobalIndex = frequency.findIndex(
+            el => el.tagName === "H3" && el.textContent.trim() === "Resultados globales"
+        );
 
-        if (!maintainedNodes.length || !frequencyNodes.length) return;
+        if (maintainedGlobalIndex < 0 || frequencyGlobalIndex < 0) return;
 
         rebuilding = true;
 
-        const maintainedBlock = createCard("temporal-maintained-block");
-        const frequencyBlock = createCard("temporal-frequency-block");
+        /* =====================================================
+           POSTURAS MANTENIDAS
+           Una tarjeta blanca para los resultados individuales,
+           otra para los resultados globales.
+        ===================================================== */
 
-        let currentCard = null;
-        maintainedNodes.forEach(node => {
-            if (node.tagName === "H4" && /^Vídeo\s+/i.test(node.textContent.trim())) {
-                currentCard = createCard("temporal-video-card");
-                maintainedBlock.appendChild(currentCard);
-                currentCard.appendChild(node);
-                return;
-            }
-
-            if (node.tagName === "H3" && node.textContent.trim() === "Resultados globales") {
-                currentCard = createCard("temporal-global-card");
-                maintainedBlock.appendChild(currentCard);
-                currentCard.appendChild(node);
-                return;
-            }
-
-            if (node.tagName === "H4" && node.textContent.trim() === "Rangos y franjas estudiados") {
-                currentCard = createCard("temporal-ranges-card");
-                maintainedBlock.appendChild(currentCard);
-                currentCard.appendChild(node);
-                return;
-            }
-
-            if (currentCard) currentCard.appendChild(node);
-            else maintainedBlock.appendChild(node);
+        const maintainedIndividual = card("temporal-maintained-individual");
+        takeUntil(maintained, 0, maintainedGlobalIndex).forEach(node => {
+            maintainedIndividual.appendChild(node);
         });
 
-        currentCard = null;
-        frequencyNodes.forEach(node => {
-            if (node.tagName === "H4" && /^Vídeo\s+/i.test(node.textContent.trim())) {
-                currentCard = createCard("temporal-video-card");
-                frequencyBlock.appendChild(currentCard);
-                currentCard.appendChild(node);
-                return;
-            }
-
-            if (node.tagName === "H3" && node.textContent.trim() === "Resultados globales") {
-                currentCard = createCard("temporal-global-card");
-                frequencyBlock.appendChild(currentCard);
-                currentCard.appendChild(node);
-                return;
-            }
-
-            if (currentCard) currentCard.appendChild(node);
-            else frequencyBlock.appendChild(node);
+        const maintainedGlobal = card("temporal-maintained-global");
+        takeUntil(maintained, maintainedGlobalIndex, maintained.length).forEach(node => {
+            maintainedGlobal.appendChild(node);
         });
 
-        container.replaceChildren(maintainedBlock, frequencyBlock);
+        /* =====================================================
+           FRECUENCIA
+           Una tarjeta blanca para los resultados individuales,
+           otra para los resultados globales.
+        ===================================================== */
+
+        const frequencyIndividual = card("temporal-frequency-individual");
+        takeUntil(frequency, 0, frequencyGlobalIndex).forEach(node => {
+            frequencyIndividual.appendChild(node);
+        });
+
+        const frequencyGlobal = card("temporal-frequency-global");
+        takeUntil(frequency, frequencyGlobalIndex, frequency.length).forEach(node => {
+            frequencyGlobal.appendChild(node);
+        });
+
+        container.replaceChildren(
+            maintainedIndividual,
+            maintainedGlobal,
+            frequencyIndividual,
+            frequencyGlobal
+        );
+
         container.dataset.temporalLayoutApplied = "true";
         rebuilding = false;
     }
 
-    function scheduleLayout() {
+    function schedule() {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
             timer = null;
-            buildTemporalLayout();
+            build();
         }, 0);
     }
 
@@ -124,9 +103,7 @@
         if (!container) return;
 
         const observer = new MutationObserver(() => {
-            if (rebuilding) return;
-            container.dataset.temporalLayoutApplied = "false";
-            scheduleLayout();
+            if (!rebuilding) schedule();
         });
 
         observer.observe(container, {
@@ -134,7 +111,7 @@
             subtree: true
         });
 
-        scheduleLayout();
+        schedule();
     }
 
     if (document.readyState === "loading") {
