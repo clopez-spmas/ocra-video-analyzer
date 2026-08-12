@@ -1,40 +1,46 @@
 "use strict";
 
-/*
-=========================================================
+/* =========================================================
 OCRA VIDEO ANALYZER
 SUSTAINED POSTURES
-=========================================================
 
-Detecta posturas mantenidas durante más de 4 segundos
-continuados dentro de franjas angulares.
-
-TRONCO  -> franjas de 10 grados
-CABEZA  -> franjas de 5 grados
-=========================================================
-*/
+Detecta posturas mantenidas > 4 s dentro de franjas angulares.
+La continuidad se calcula con timestamp del JSON de Kinovea.
+========================================================= */
 
 const SUSTAINED_POSTURE_LIMIT_SECONDS = 4;
-const TRUNK_BAND_SIZE = 10;
-const HEAD_BAND_SIZE = 5;
 
+const SUSTAINED_BAND_SIZES = {
+    trunk_flexion: 10,
+    trunk_lateral: 2,
+    trunk_axial_rotation: 2,
+    neck_flexion: 5,
+    head_lateral: 2,
+    head_axial_rotation: 2,
+    knee_flexion_left: 10,
+    knee_flexion_right: 10,
+    ankle_left: 2,
+    ankle_right: 2
+};
+
+const SUSTAINED_LABELS = {
+    trunk_flexion: "Tronco - flexión / extensión",
+    trunk_lateral: "Tronco - inclinación lateral",
+    trunk_axial_rotation: "Tronco - rotación axial",
+    neck_flexion: "Cabeza - flexión / extensión",
+    head_lateral: "Cabeza - lateralización",
+    head_axial_rotation: "Cabeza - rotación axial",
+    knee_flexion_left: "Rodilla izquierda - flexión",
+    knee_flexion_right: "Rodilla derecha - flexión",
+    ankle_left: "Tobillo izquierdo",
+    ankle_right: "Tobillo derecho"
+};
 
 function getSustainedPostureBand(measurementName, value) {
-
     const numericValue = Number(value);
-    if (!Number.isFinite(numericValue)) return null;
+    const bandSize = SUSTAINED_BAND_SIZES[measurementName];
 
-    let bandSize;
-
-    if (measurementName === "trunk_flexion" || measurementName === "trunk_lateral") {
-        bandSize = TRUNK_BAND_SIZE;
-    }
-    else if (measurementName === "neck_flexion") {
-        bandSize = HEAD_BAND_SIZE;
-    }
-    else {
-        return null;
-    }
+    if (!Number.isFinite(numericValue) || !bandSize) return null;
 
     const magnitude = Math.abs(numericValue);
     const lower = Math.floor(magnitude / bandSize) * bandSize;
@@ -48,15 +54,12 @@ function getSustainedPostureBand(measurementName, value) {
     };
 }
 
-
 function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUSTAINED_POSTURE_LIMIT_SECONDS) {
-
     if (!Array.isArray(frames) || frames.length === 0) return [];
 
-    /*
-    Los frames inválidos NO se eliminan: rompen la continuidad.
-    El tiempo siempre procede de timestamp del JSON de Kinovea.
-    */
+    const bandSize = SUSTAINED_BAND_SIZES[measurementName];
+    if (!bandSize) return [];
+
     const orderedFrames = frames
         .filter(frame => frame && Number.isFinite(Number(frame.timestamp)))
         .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
@@ -66,6 +69,18 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
     const episodes = [];
     let current = null;
 
+    function startEpisode(time, value, band) {
+        current = {
+            band,
+            startTime: time,
+            startAngle: value,
+            lastAngle: value,
+            angleSum: value,
+            angleCount: 1,
+            previousTime: time
+        };
+    }
+
     function closeEpisode(endTime) {
         if (!current) return;
 
@@ -74,9 +89,11 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
         if (duration > minimumSeconds) {
             episodes.push({
                 measurement: measurementName,
+                label: SUSTAINED_LABELS[measurementName] || measurementName,
                 bandLower: current.band.lower,
                 bandUpper: current.band.upper,
                 bandLabel: current.band.label,
+                bandSize: current.band.size,
                 startTime: current.startTime,
                 endTime: Number(endTime),
                 duration,
@@ -90,20 +107,13 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
     }
 
     for (let i = 0; i < orderedFrames.length; i++) {
-
         const frame = orderedFrames[i];
         const time = Number(frame.timestamp);
-
-        const valid =
-            frame.valid === true &&
-            Number.isFinite(Number(frame.value));
+        const valid = frame.valid === true && Number.isFinite(Number(frame.value));
 
         if (!valid) {
             if (current) {
-                const previousTime = i > 0
-                    ? Number(orderedFrames[i - 1].timestamp)
-                    : time;
-                closeEpisode(previousTime);
+                closeEpisode(i > 0 ? Number(orderedFrames[i - 1].timestamp) : time);
             }
             continue;
         }
@@ -117,36 +127,16 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
         }
 
         if (!current) {
-            current = {
-                band,
-                startTime: time,
-                startAngle: value,
-                lastAngle: value,
-                angleSum: value,
-                angleCount: 1,
-                previousTime: time
-            };
+            startEpisode(time, value, band);
             continue;
         }
 
-        const sameBand =
-            current.band.lower === band.lower &&
-            current.band.upper === band.upper;
-
+        const sameBand = current.band.lower === band.lower && current.band.upper === band.upper;
         const gap = time - current.previousTime;
 
         if (!sameBand || !Number.isFinite(gap) || gap <= 0) {
             closeEpisode(current.previousTime);
-
-            current = {
-                band,
-                startTime: time,
-                startAngle: value,
-                lastAngle: value,
-                angleSum: value,
-                angleCount: 1,
-                previousTime: time
-            };
+            startEpisode(time, value, band);
             continue;
         }
 
@@ -156,30 +146,18 @@ function analyzeSustainedPostures(frames, measurementName, minimumSeconds = SUST
         current.previousTime = time;
     }
 
-    if (current) {
-        closeEpisode(current.previousTime);
-    }
+    if (current) closeEpisode(current.previousTime);
 
     return episodes;
 }
 
-
 function analyzeAllSustainedPostures(biomechanicalFrames) {
-
     const grouped = {};
     if (!Array.isArray(biomechanicalFrames)) return [];
 
     biomechanicalFrames.forEach(frame => {
         if (!frame || !frame.name) return;
-
-        if (
-            frame.name !== "trunk_flexion" &&
-            frame.name !== "trunk_lateral" &&
-            frame.name !== "neck_flexion"
-        ) {
-            return;
-        }
-
+        if (!SUSTAINED_BAND_SIZES[frame.name]) return;
         if (!grouped[frame.name]) grouped[frame.name] = [];
         grouped[frame.name].push(frame);
     });
@@ -193,9 +171,7 @@ function analyzeAllSustainedPostures(biomechanicalFrames) {
     return allEpisodes.sort((a, b) => a.startTime - b.startTime);
 }
 
-
 function summarizeSustainedPostures(episodes) {
-
     const summary = {};
     if (!Array.isArray(episodes)) return summary;
 
@@ -205,9 +181,11 @@ function summarizeSustainedPostures(episodes) {
         if (!summary[key]) {
             summary[key] = {
                 measurement: episode.measurement,
+                label: episode.label,
                 bandLower: episode.bandLower,
                 bandUpper: episode.bandUpper,
                 bandLabel: episode.bandLabel,
+                bandSize: episode.bandSize,
                 totalTime: 0,
                 occurrences: 0,
                 episodes: []
@@ -222,14 +200,9 @@ function summarizeSustainedPostures(episodes) {
     return Object.values(summary).sort((a, b) => b.totalTime - a.totalTime);
 }
 
-
 function getSustainedPostureLabel(measurement) {
-    if (measurement === "trunk_flexion") return "Tronco - flexión";
-    if (measurement === "trunk_lateral") return "Tronco - inclinación lateral";
-    if (measurement === "neck_flexion") return "Cabeza - flexión cervical";
-    return measurement;
+    return SUSTAINED_LABELS[measurement] || measurement;
 }
-
 
 window.SustainedPostures = {
     analyze: analyzeSustainedPostures,
@@ -237,5 +210,6 @@ window.SustainedPostures = {
     summarize: summarizeSustainedPostures,
     getBand: getSustainedPostureBand,
     getLabel: getSustainedPostureLabel,
-    minimumSeconds: SUSTAINED_POSTURE_LIMIT_SECONDS
+    minimumSeconds: SUSTAINED_POSTURE_LIMIT_SECONDS,
+    bandSizes: SUSTAINED_BAND_SIZES
 };
