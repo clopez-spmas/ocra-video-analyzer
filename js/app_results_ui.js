@@ -3,16 +3,16 @@
 (function () {
 
     const SUSTAINED_STUDY = [
-        ["Tronco - flexión / extensión", "0°–180°", "10°"],
-        ["Tronco - inclinación lateral", "0°–180°", "2°"],
-        ["Tronco - rotación axial", "0°–180°", "2°"],
-        ["Cabeza - flexión / extensión", "0°–180°", "5°"],
-        ["Cabeza - lateralización", "0°–180°", "2°"],
-        ["Cabeza - rotación axial", "0°–180°", "2°"],
-        ["Rodilla izquierda - flexión", "0°–180°", "10°"],
-        ["Rodilla derecha - flexión", "0°–180°", "10°"],
-        ["Tobillo izquierdo", "0°–180°", "2°"],
-        ["Tobillo derecho", "0°–180°", "2°"]
+        ["Tronco - flexión / extensión", "-20° a +50°", "10°"],
+        ["Tronco - inclinación lateral", "-25° a +25°", "2°"],
+        ["Tronco - rotación axial", "-30° a +30°", "2°"],
+        ["Cabeza - flexión / extensión", "-70° a +80°", "5°"],
+        ["Cabeza - lateralización", "-45° a +45°", "2°"],
+        ["Cabeza - rotación axial", "-90° a +90°", "2°"],
+        ["Rodilla izquierda - flexión", "0° a 150°", "10°"],
+        ["Rodilla derecha - flexión", "0° a 150°", "10°"],
+        ["Tobillo izquierdo - flexión dorsal / plantar", "-30° a +50°", "2°"],
+        ["Tobillo derecho - flexión dorsal / plantar", "-30° a +50°", "2°"]
     ];
 
     function escapeHtml(value) {
@@ -56,13 +56,13 @@
 
         return `
             <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
-            <p>Se estudia el rango angular de 0° a 180°. Los ángulos se agrupan en franjas antes de determinar si una postura permanece en la misma franja durante más de 4 segundos continuados.</p>
+            <p>Se estudia el rango anatómico máximo indicado para cada movimiento. Los ángulos se agrupan en las franjas especificadas y solo se consideran episodios que permanecen en la misma franja durante más de 4 segundos continuados.</p>
             <div class="table-wrapper">
                 <table class="sustained-posture-table">
                     <thead>
                         <tr>
                             <th>Zona / movimiento</th>
-                            <th>Rango angular estudiado</th>
+                            <th>Rango anatómico estudiado</th>
                             <th>Tamaño de franja</th>
                             <th>Estado</th>
                         </tr>
