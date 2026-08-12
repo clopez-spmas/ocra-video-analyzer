@@ -2,9 +2,6 @@
 
 /* =========================================================
    RESULTADOS DE LA APLICACIÓN
-
-   Mantiene separada la presentación de resultados del flujo
-   principal de app.js. No modifica los cálculos.
    ========================================================= */
 
 (function () {
@@ -34,6 +31,29 @@
             ? result.postureResults.measurements
             : [];
     }
+
+    /* Información del archivo seleccionado. */
+    window.updateFileInfo = function (file, videoIndex) {
+        if (!file) return;
+
+        const nameElement = document.getElementById(`fileName_${videoIndex}`);
+        const sizeElement = document.getElementById(`fileSize_${videoIndex}`);
+
+        if (nameElement) {
+            nameElement.textContent = file.name || "-";
+        }
+
+        if (sizeElement) {
+            const bytes = Number(file.size);
+            if (Number.isFinite(bytes)) {
+                const mb = bytes / (1024 * 1024);
+                sizeElement.textContent = `${mb.toFixed(2)} MB`;
+            }
+            else {
+                sizeElement.textContent = "-";
+            }
+        }
+    };
 
     window.showAnalysisInformation = function (results) {
         const container = document.getElementById("analysisInformation");
@@ -152,19 +172,12 @@
             </table></div>`;
     };
 
-    window.showCombinedPostureResults = function (results) {
+    window.showCombinedPostureResults = function () {
         const container = document.getElementById("postureResults");
         if (!container) return;
 
-        /* La tabla específica de posturas mantenidas es responsabilidad
-           de sustained_posture_ui.js. Aquí solo aseguramos que el
-           contenedor exista y no borramos sus resultados. */
         if (!Array.isArray(window.__sustainedPostureRun)) {
             window.__sustainedPostureRun = [];
-        }
-
-        if (typeof window.renderSustainedPostures === "function") {
-            window.renderSustainedPostures();
         }
     };
 
