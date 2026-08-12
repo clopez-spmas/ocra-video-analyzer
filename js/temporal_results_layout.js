@@ -43,14 +43,37 @@
             el => el.tagName === "H3" && el.textContent.trim() === "Resultados globales"
         );
 
-        if (maintainedGlobalIndex < 0 || frequencyGlobalIndex < 0) return;
-
         rebuilding = true;
 
         /* =====================================================
+           ESTADO PREVIO AL ANÁLISIS
+           En este estado todavía no existen los bloques
+           "Resultados globales". Aun así, deben conservar
+           exactamente la misma separación visual que tendrán
+           los resultados finales.
+        ===================================================== */
+        if (maintainedGlobalIndex < 0 || frequencyGlobalIndex < 0) {
+            const maintainedPending = card("temporal-maintained-pending");
+            maintained.forEach(node => maintainedPending.appendChild(node));
+
+            const frequencyPending = card("temporal-frequency-pending");
+            frequency.forEach(node => frequencyPending.appendChild(node));
+
+            container.replaceChildren(
+                maintainedPending,
+                frequencyPending
+            );
+
+            container.dataset.temporalLayoutApplied = "true";
+            rebuilding = false;
+            return;
+        }
+
+        /* =====================================================
            POSTURAS MANTENIDAS
-           Una tarjeta blanca para los resultados individuales,
-           otra para los resultados globales.
+           Se conserva la estructura ya validada para resultados:
+           una tarjeta blanca para resultados individuales y
+           otra para resultados globales.
         ===================================================== */
 
         const maintainedIndividual = card("temporal-maintained-individual");
@@ -65,8 +88,9 @@
 
         /* =====================================================
            FRECUENCIA
-           Una tarjeta blanca para los resultados individuales,
-           otra para los resultados globales.
+           Se conserva la estructura ya validada para resultados:
+           una tarjeta blanca para resultados individuales y
+           otra para resultados globales.
         ===================================================== */
 
         const frequencyIndividual = card("temporal-frequency-individual");
