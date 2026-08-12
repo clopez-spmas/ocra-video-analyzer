@@ -2,10 +2,11 @@
 
 /* =========================================================
 OCRA VIDEO ANALYZER
-SUSTAINED POSTURES
+SUSTAINED POSTURES / POSTURE FREQUENCY
 
-Detecta posturas mantenidas > 4 s dentro de franjas angulares.
-La continuidad se calcula con timestamp del JSON de Kinovea.
+Detecta posturas mantenidas > 4 s dentro de franjas angulares
+ y calcula cuántas veces por minuto se adopta cada franja.
+La continuidad y la frecuencia se calculan con timestamp del JSON de Kinovea.
 ========================================================= */
 
 const SUSTAINED_POSTURE_LIMIT_SECONDS = 4;
@@ -171,6 +172,105 @@ function analyzeAllSustainedPostures(biomechanicalFrames) {
     return allEpisodes.sort((a, b) => a.startTime - b.startTime);
 }
 
+function analyzePostureFrequency(frames, measurementName) {
+    if (!Array.isArray(frames) || frames.length === 0) return [];
+
+    const orderedFrames = frames
+        .filter(frame => frame && Number.isFinite(Number(frame.timestamp)))
+        .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+
+    if (orderedFrames.length === 0) return [];
+
+    const counts = {};
+    let previousBandKey = null;
+    let previousTime = null;
+
+    orderedFrames.forEach(frame => {
+        const time = Number(frame.timestamp);
+        const valid = frame.valid === true && Number.isFinite(Number(frame.value));
+
+        if (!valid) {
+            previousBandKey = null;
+            previousTime = null;
+            return;
+        }
+
+        const band = getSustainedPostureBand(measurementName, frame.value);
+        if (!band) {
+            previousBandKey = null;
+            previousTime = time;
+            return;
+        }
+
+        const gap = previousTime === null ? 0 : time - previousTime;
+        const bandKey = `${band.lower}|${band.upper}`;
+
+        if (previousBandKey !== bandKey || !Number.isFinite(gap) || gap <= 0) {
+            if (!counts[bandKey]) {
+                counts[bandKey] = {
+                    measurement: measurementName,
+                    label: SUSTAINED_LABELS[measurementName] || measurementName,
+                    bandLower: band.lower,
+                    bandUpper: band.upper,
+                    bandLabel: band.label,
+                    bandSize: band.size,
+                    occurrences: 0
+                };
+            }
+            counts[bandKey].occurrences++;
+        }
+
+        previousBandKey = bandKey;
+        previousTime = time;
+    });
+
+    return Object.values(counts);
+}
+
+function analyzeAllPostureFrequency(biomechanicalFrames, startTime = null, endTime = null) {
+    const grouped = {};
+    if (!Array.isArray(biomechanicalFrames)) return { analysisDuration: 0, rows: [] };
+
+    biomechanicalFrames.forEach(frame => {
+        if (!frame || !frame.name || !SUSTAINED_BAND_SIZES[frame.name]) return;
+        const time = Number(frame.timestamp);
+        if (!Number.isFinite(time)) return;
+        if (startTime !== null && time < Number(startTime)) return;
+        if (endTime !== null && time > Number(endTime)) return;
+        if (!grouped[frame.name]) grouped[frame.name] = [];
+        grouped[frame.name].push(frame);
+    });
+
+    const times = biomechanicalFrames
+        .map(frame => Number(frame?.timestamp))
+        .filter(Number.isFinite)
+        .filter(time => (startTime === null || time >= Number(startTime)) && (endTime === null || time <= Number(endTime)));
+
+    const durationStart = startTime !== null ? Number(startTime) : (times.length ? Math.min(...times) : 0);
+    const durationEnd = endTime !== null ? Number(endTime) : (times.length ? Math.max(...times) : 0);
+    const analysisDuration = Number.isFinite(durationStart) && Number.isFinite(durationEnd)
+        ? Math.max(0, durationEnd - durationStart)
+        : 0;
+
+    const rows = [];
+    Object.keys(grouped).forEach(name => {
+        analyzePostureFrequency(grouped[name], name).forEach(row => {
+            rows.push({
+                ...row,
+                analysisDuration,
+                occurrencesPerMinute: analysisDuration > 0
+                    ? (row.occurrences / analysisDuration) * 60
+                    : 0
+            });
+        });
+    });
+
+    return {
+        analysisDuration,
+        rows: rows.sort((a, b) => b.occurrencesPerMinute - a.occurrencesPerMinute)
+    };
+}
+
 function summarizeSustainedPostures(episodes) {
     const summary = {};
     if (!Array.isArray(episodes)) return summary;
@@ -208,6 +308,8 @@ window.SustainedPostures = {
     analyze: analyzeSustainedPostures,
     analyzeAll: analyzeAllSustainedPostures,
     summarize: summarizeSustainedPostures,
+    analyzeFrequency: analyzePostureFrequency,
+    analyzeAllFrequency: analyzeAllPostureFrequency,
     getBand: getSustainedPostureBand,
     getLabel: getSustainedPostureLabel,
     minimumSeconds: SUSTAINED_POSTURE_LIMIT_SECONDS,
