@@ -33,6 +33,55 @@ tr:nth-child(even){ background:#f7f9fb; }
 .card-danger{ border-left:6px solid #e53935; }
 
 /* =====================================================
+   CONFIGURACIÓN DE UMBRALES
+===================================================== */
+
+.threshold-config-panel{
+    max-width:760px;
+    margin-top:18px;
+}
+
+.threshold-row{
+    display:grid;
+    grid-template-columns:minmax(280px, 1fr) 64px 22px;
+    align-items:center;
+    column-gap:10px;
+    min-height:42px;
+    padding:6px 0;
+    border-bottom:1px solid #edf1f5;
+}
+
+.threshold-row label{
+    font-weight:600;
+    color:#2d3748;
+    line-height:1.3;
+}
+
+.threshold-row input{
+    width:64px;
+    height:32px;
+    padding:4px 7px;
+    border:1px solid #cbd5e0;
+    border-radius:5px;
+    background:white;
+    color:#2d3748;
+    font:inherit;
+    font-size:14px;
+    text-align:center;
+    outline:none;
+}
+
+.threshold-row input:focus{
+    border-color:#0078d4;
+    box-shadow:0 0 0 2px rgba(0,120,212,.12);
+}
+
+.threshold-unit{
+    font-weight:600;
+    color:#555;
+}
+
+/* =====================================================
    RESULTADOS TEMPORALES
    Mismo lenguaje visual que los resultados biomecánicos.
 ===================================================== */
@@ -81,6 +130,9 @@ tr:nth-child(even){ background:#f7f9fb; }
     .header h1{ font-size:28px; }
     .info-grid{ grid-template-columns:1fr; }
     button{ width:100%; }
+    .threshold-config-panel{ max-width:100%; }
+    .threshold-row{ grid-template-columns:minmax(180px,1fr) 60px 20px; }
+    .threshold-row input{ width:60px; }
     .temporal-result-card{ padding:18px; overflow-x:auto; }
     .temporal-result-card table{ min-width:700px; }
 }
