@@ -82,9 +82,16 @@ El detalle de cada episodio incluye:
 
         let html = `
             <div class="sustained-posture-header">
-                <h3>Posturas mantenidas durante más de 4 segundos</h3>
+                <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
                 <p>
-                    Tronco: franjas de 10°. Cabeza: franjas de 5°.
+                    Se analizan episodios en los que una postura permanece más de 4 segundos dentro de la misma franja angular.
+                    <br>
+                    <strong>Tronco:</strong> flexión/extensión en franjas de 10°, inclinación lateral y rotación axial en franjas de 2°.
+                    <br>
+                    <strong>Cabeza:</strong> flexión/extensión en franjas de 5°, lateralización y rotación axial en franjas de 2°.
+                    <br>
+                    <strong>Rodillas:</strong> flexión en franjas de 10°. <strong>Tobillos:</strong> en franjas de 2°.
+                    <br>
                     Se muestran únicamente episodios estrictamente superiores a 4 segundos continuados.
                 </p>
             </div>
@@ -93,7 +100,8 @@ El detalle de cada episodio incluye:
         if (allEpisodes.length === 0) {
             html += `
                 <div class="sustained-posture-empty">
-                    No se han detectado posturas mantenidas durante más de 4 segundos.
+                    No se han detectado episodios de posturas mantenidas durante más de 4 segundos continuados
+                    en ninguna de las posturas analizadas: tronco, cabeza, rodillas o tobillos.
                 </div>
             `;
             panel.innerHTML = html;
