@@ -3,7 +3,7 @@
 (function () {
 
     const SUSTAINED_STUDY = [
-        ["Tronco - flexión / extensión", "-20° a +50°", "10°"],
+        ["Tronco - flexión / extensión", "0° a 90°", "10°"],
         ["Tronco - inclinación lateral", "-25° a +25°", "2°"],
         ["Tronco - rotación axial", "-30° a +30°", "2°"],
         ["Cabeza - flexión / extensión", "-70° a +80°", "5°"],
@@ -56,7 +56,7 @@
 
         return `
             <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
-            <p>Se estudia el rango anatómico máximo indicado para cada movimiento. Los ángulos se agrupan en las franjas especificadas y solo se consideran episodios que permanecen en la misma franja durante más de 4 segundos continuados.</p>
+            <p>Se estudia el rango anatómico indicado para cada movimiento. Los ángulos se agrupan en las franjas especificadas y solo se consideran episodios que permanecen en la misma franja durante más de 4 segundos continuados.</p>
             <div class="table-wrapper">
                 <table class="sustained-posture-table">
                     <thead>
