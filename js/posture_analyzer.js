@@ -6,14 +6,8 @@ OCRA VIDEO ANALYZER
 POSTURE ANALYZER
 =========================================================
 
-Analiza exposición temporal y posturas mantenidas.
-
-Posturas mantenidas:
-- Tronco: franjas de 10°.
-- Cabeza: franjas de 5°.
-- Solo se consideran episodios estrictamente superiores a 4 s.
-- Se conserva inicio, final, duración y ángulos del episodio.
-- Si una misma franja aparece varias veces, cada episodio se conserva.
+Analiza exposición temporal, posturas mantenidas y frecuencia
+de adopción de posturas por minuto dentro de franjas angulares.
 
 No realiza puntuación OCRA ni clasificación de riesgo.
 =========================================================
@@ -30,7 +24,8 @@ const PostureAnalyzer = {
                 analysisEndTime: 0,
                 analysisDuration: 0,
                 measurements: [],
-                sustainedPostures: []
+                sustainedPostures: [],
+                postureFrequency: []
             };
         }
 
@@ -99,6 +94,7 @@ const PostureAnalyzer = {
         });
 
         let sustainedPostures = [];
+        let postureFrequency = [];
 
         if (typeof SustainedPostures !== "undefined") {
             const selectedFrames = biomechanicalFrames.filter(frame => {
@@ -110,19 +106,23 @@ const PostureAnalyzer = {
             });
 
             sustainedPostures = SustainedPostures.analyzeAll(selectedFrames);
+
+            if (typeof SustainedPostures.analyzeAllFrequency === "function") {
+                postureFrequency = SustainedPostures.analyzeAllFrequency(
+                    selectedFrames,
+                    period.startTime,
+                    period.endTime
+                ).rows;
+            }
         }
 
-        /*
-        Mantiene una copia de los resultados de posturas mantenidas
-        para que la interfaz pueda construir la tabla individual y
-        la tabla global sin alterar el resto del análisis.
-        */
         if (!Array.isArray(window.__sustainedPostureRun)) {
             window.__sustainedPostureRun = [];
         }
 
         window.__sustainedPostureRun.push({
             sustainedPostures,
+            postureFrequency,
             analysisStartTime: period.startTime,
             analysisEndTime: period.endTime
         });
@@ -134,14 +134,13 @@ const PostureAnalyzer = {
             analysisDuration: period.endTime - period.startTime,
             analysisMode: period.mode,
             measurements: results,
-            sustainedPostures
+            sustainedPostures,
+            postureFrequency
         };
     }
 };
 
-
 function resolveAnalysisPeriod(videoDuration, cycleConfig) {
-
     const duration = Math.max(0, Number(videoDuration) || 0);
 
     if (!cycleConfig || cycleConfig.enabled !== true) {
@@ -181,20 +180,17 @@ function resolveAnalysisPeriod(videoDuration, cycleConfig) {
     };
 }
 
-
 function clampTime(value, min, max) {
     const number = Number(value);
     if (!Number.isFinite(number)) return min;
     return Math.min(Math.max(number, min), max);
 }
 
-
 function groupMeasurements(frames) {
     const groups = {};
 
     frames.forEach(frame => {
         if (!frame || !frame.name) return;
-
         if (!groups[frame.name]) groups[frame.name] = [];
         groups[frame.name].push(frame);
     });
@@ -206,13 +202,11 @@ function groupMeasurements(frames) {
     return groups;
 }
 
-
 function getVideoDuration(frames) {
     let maxTime = 0;
 
     frames.forEach(frame => {
         if (!frame) return;
-
         const time = Number(frame.timestamp);
         if (Number.isFinite(time) && time > maxTime) maxTime = time;
     });
@@ -220,9 +214,7 @@ function getVideoDuration(frames) {
     return maxTime;
 }
 
-
 function getThreshold(name) {
-
     if (typeof Thresholds === "undefined") return null;
 
     const input = document.getElementById(`threshold_${name}`);
@@ -247,14 +239,12 @@ function getThreshold(name) {
     return Number.isFinite(value) ? value : null;
 }
 
-
 function getMeasurementLabel(name) {
     if (typeof Thresholds !== "undefined" && Thresholds[name] && Thresholds[name].label) {
         return Thresholds[name].label;
     }
     return name;
 }
-
 
 function getMeasurementDescription(name) {
     if (typeof Thresholds !== "undefined" && Thresholds[name] && Thresholds[name].description) {
@@ -263,9 +253,7 @@ function getMeasurementDescription(name) {
     return name;
 }
 
-
 function analyzePeriod(frames, startTime, endTime, threshold) {
-
     const start = Number(startTime);
     const end = Number(endTime);
 
@@ -275,7 +263,6 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
 
     const selected = frames.filter(frame => {
         if (!frame) return false;
-
         const time = Number(frame.timestamp);
         return Number.isFinite(time) && time >= start && time <= end;
     });
@@ -289,7 +276,6 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
     let inExposure = false;
 
     for (let i = 0; i < selected.length; i++) {
-
         const current = selected[i];
         const currentTime = Number(current.timestamp);
         const currentValue = Number(current.value);
@@ -338,6 +324,5 @@ function analyzePeriod(frames, startTime, endTime, threshold) {
 
     return { exposureTime, exposurePercentage, episodes };
 }
-
 
 window.PostureAnalyzer = PostureAnalyzer;
