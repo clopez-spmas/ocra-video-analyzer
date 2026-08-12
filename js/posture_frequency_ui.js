@@ -73,23 +73,27 @@ POSTURE FREQUENCY UI
 
         const frequencyRows = [];
         const globalGroups = {};
-        let totalAnalysisDuration = 0;
+        const measurementVideoDurations = {};
 
         (Array.isArray(results) ? results : []).forEach(result => {
             const posture = result.postureResults || {};
             const duration = Number(posture.analysisDuration) || 0;
-            totalAnalysisDuration += duration;
+            const rows = Array.isArray(posture.postureFrequency) ? posture.postureFrequency : [];
+            const measurementsInVideo = new Set();
 
-            (Array.isArray(posture.postureFrequency) ? posture.postureFrequency : []).forEach(row => {
+            rows.forEach(row => {
                 frequencyRows.push({
                     ...row,
                     videoNumber: result.videoNumber,
                     fileName: result.fileName
                 });
 
+                measurementsInVideo.add(row.measurement);
+
                 const key = `${row.measurement}|${row.bandLower}|${row.bandUpper}`;
                 if (!globalGroups[key]) {
                     globalGroups[key] = {
+                        measurement: row.measurement,
                         label: row.label,
                         bandLabel: row.bandLabel,
                         occurrences: 0,
@@ -98,9 +102,17 @@ POSTURE FREQUENCY UI
                     };
                 }
                 globalGroups[key].occurrences += Number(row.occurrences) || 0;
-                globalGroups[key].analysisDuration += duration;
                 globalGroups[key].videos.add(String(result.videoNumber));
             });
+
+            measurementsInVideo.forEach(measurement => {
+                if (!measurementVideoDurations[measurement]) measurementVideoDurations[measurement] = 0;
+                measurementVideoDurations[measurement] += duration;
+            });
+        });
+
+        Object.values(globalGroups).forEach(group => {
+            group.analysisDuration = measurementVideoDurations[group.measurement] || 0;
         });
 
         const frequencySection = document.createElement("div");
