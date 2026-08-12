@@ -29,19 +29,17 @@ POSTURE FREQUENCY UI
             .replace(/'/g, "&#039;");
     }
 
-    function frequencyStudyTable(status) {
+    function frequencyStudyTable(statusOrFrequency, analyzed = false) {
         const rows = STUDY.map(item => `
             <tr>
                 <td>${esc(item[0])}</td>
                 <td>${item[1]}</td>
                 <td>${item[2]}</td>
-                <td>${esc(status)}</td>
+                <td>${esc(typeof statusOrFrequency === "function" ? statusOrFrequency(item) : statusOrFrequency)}</td>
             </tr>
         `).join("");
 
         return `
-            <h3>Frecuencia de adopción de posturas por minuto</h3>
-            <p>Se estudia cuántas veces se adopta cada postura dentro de las franjas angulares indicadas. La frecuencia se expresa en número de adopciones por minuto y se calcula utilizando los tiempos del JSON de Kinovea.</p>
             <div class="table-wrapper">
                 <table class="sustained-posture-table">
                     <thead>
@@ -49,7 +47,7 @@ POSTURE FREQUENCY UI
                             <th>Zona / movimiento</th>
                             <th>Rango anatómico estudiado</th>
                             <th>Tamaño de franja</th>
-                            <th>Estado</th>
+                            <th>Frecuencia</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -63,7 +61,11 @@ POSTURE FREQUENCY UI
         if (!container || container.querySelector(".posture-frequency-section")) return;
         const section = document.createElement("div");
         section.className = "posture-frequency-section";
-        section.innerHTML = frequencyStudyTable("Pendiente de análisis");
+        section.innerHTML = `
+            <h3>Frecuencia de adopción de posturas</h3>
+            <p>Se estudia cuántas veces se adopta cada postura dentro de las franjas angulares indicadas. La frecuencia se expresa en número de adopciones por minuto y se calcula utilizando los tiempos del JSON de Kinovea.</p>
+            ${frequencyStudyTable("Pendiente de análisis")}
+        `;
         container.appendChild(section);
     }
 
@@ -82,12 +84,7 @@ POSTURE FREQUENCY UI
             const measurementsInVideo = new Set();
 
             rows.forEach(row => {
-                frequencyRows.push({
-                    ...row,
-                    videoNumber: result.videoNumber,
-                    fileName: result.fileName
-                });
-
+                frequencyRows.push({ ...row, videoNumber: result.videoNumber, fileName: result.fileName });
                 measurementsInVideo.add(row.measurement);
 
                 const key = `${row.measurement}|${row.bandLower}|${row.bandUpper}`;
@@ -106,8 +103,7 @@ POSTURE FREQUENCY UI
             });
 
             measurementsInVideo.forEach(measurement => {
-                if (!measurementVideoDurations[measurement]) measurementVideoDurations[measurement] = 0;
-                measurementVideoDurations[measurement] += duration;
+                measurementVideoDurations[measurement] = (measurementVideoDurations[measurement] || 0) + duration;
             });
         });
 
@@ -115,15 +111,16 @@ POSTURE FREQUENCY UI
             group.analysisDuration = measurementVideoDurations[group.measurement] || 0;
         });
 
-        const frequencySection = document.createElement("div");
-        frequencySection.className = "posture-frequency-section";
+        const section = document.createElement("div");
+        section.className = "posture-frequency-section";
 
         if (!frequencyRows.length) {
-            frequencySection.innerHTML = `
-                ${frequencyStudyTable("Analizado")}
-                <p><strong>No se han detectado adopciones de posturas en las franjas estudiadas durante el período analizado.</strong></p>
+            section.innerHTML = `
+                <h3>Frecuencia de adopción de posturas</h3>
+                <p>Se estudia cuántas veces se adopta cada postura dentro de las franjas angulares indicadas. La frecuencia se expresa en número de adopciones por minuto.</p>
+                ${frequencyStudyTable("No se ha detectado")}
             `;
-            container.appendChild(frequencySection);
+            container.appendChild(section);
             return;
         }
 
@@ -138,16 +135,14 @@ POSTURE FREQUENCY UI
                 <td>${esc(row.label)}</td>
                 <td>${esc(row.bandLabel)}</td>
                 <td>${Number(row.occurrences || 0)}</td>
-                <td>${(Number(row.occurrencesPerMinute) || 0).toFixed(2)}</td>
+                <td><strong>${(Number(row.occurrencesPerMinute) || 0).toFixed(2)} / min</strong></td>
             </tr>
         `).join("");
 
         const globalRows = Object.values(globalGroups)
             .map(group => ({
                 ...group,
-                frequency: group.analysisDuration > 0
-                    ? group.occurrences / group.analysisDuration * 60
-                    : 0
+                frequency: group.analysisDuration > 0 ? group.occurrences / group.analysisDuration * 60 : 0
             }))
             .sort((a, b) => b.frequency - a.frequency)
             .map(group => `
@@ -155,29 +150,36 @@ POSTURE FREQUENCY UI
                     <td>${esc(group.label)}</td>
                     <td>${esc(group.bandLabel)}</td>
                     <td>${group.occurrences}</td>
-                    <td>${group.frequency.toFixed(2)}</td>
+                    <td><strong>${group.frequency.toFixed(2)} / min</strong></td>
                     <td>${esc(Array.from(group.videos).sort((a, b) => Number(a) - Number(b)).join(", "))}</td>
                 </tr>
             `).join("");
 
-        frequencySection.innerHTML = `
-            <h3>Frecuencia de adopción de posturas por minuto</h3>
-            <p>Se calcula cuántas veces se adopta cada postura dentro de las franjas angulares estudiadas. Cada entrada en una franja cuenta como una adopción; si se mantiene en la misma franja, no se vuelve a contar hasta que se abandona y se vuelve a adoptar.</p>
+        const frequencyByStudy = item => {
+            const matching = frequencyRows.filter(row => row.label === item[0]);
+            if (!matching.length) return "No se ha detectado";
+            const max = Math.max(...matching.map(row => Number(row.occurrencesPerMinute) || 0));
+            return `${max.toFixed(2)} / min`;
+        };
+
+        section.innerHTML = `
+            <h3>Frecuencia de adopción de posturas</h3>
+            <p>Se calcula cuántas veces se adopta cada postura dentro de las franjas angulares estudiadas. Cada adopción se contabiliza cuando se entra en una franja; mientras se permanece en la misma franja no se vuelve a contar.</p>
             <h4>Detalle por vídeo</h4>
             <div class="table-wrapper"><table>
-                <thead><tr><th>Vídeo</th><th>Postura</th><th>Franja</th><th>N.º adopciones</th><th>Adopciones por minuto</th></tr></thead>
+                <thead><tr><th>Vídeo</th><th>Postura</th><th>Franja</th><th>N.º adopciones</th><th>Frecuencia</th></tr></thead>
                 <tbody>${detailRows}</tbody>
             </table></div>
             <h4>Resumen global</h4>
             <div class="table-wrapper"><table>
-                <thead><tr><th>Postura</th><th>Franja</th><th>N.º adopciones</th><th>Adopciones por minuto</th><th>Vídeos</th></tr></thead>
+                <thead><tr><th>Postura</th><th>Franja</th><th>N.º adopciones</th><th>Frecuencia</th><th>Vídeos</th></tr></thead>
                 <tbody>${globalRows}</tbody>
             </table></div>
             <h4>Rangos y franjas estudiados</h4>
-            ${frequencyStudyTable("Analizado")}
+            ${frequencyStudyTable(frequencyByStudy)}
         `;
 
-        container.appendChild(frequencySection);
+        container.appendChild(section);
     }
 
     const originalShowCombined = window.showCombinedPostureResults;
@@ -187,11 +189,7 @@ POSTURE FREQUENCY UI
         if (container) {
             container.querySelectorAll(".posture-frequency-section").forEach(element => element.remove());
         }
-
-        if (typeof originalShowCombined === "function") {
-            originalShowCombined(results);
-        }
-
+        if (typeof originalShowCombined === "function") originalShowCombined(results);
         renderFrequency(results);
     };
 
