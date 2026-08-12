@@ -55,29 +55,32 @@
         `).join("");
 
         return `
-            <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
-            <p>Se estudia el rango anatómico indicado para cada movimiento. Los ángulos se agrupan en las franjas especificadas y solo se consideran episodios que permanecen en la misma franja durante más de 4 segundos continuados.</p>
             <div class="table-wrapper">
                 <table class="sustained-posture-table">
-                    <thead>
-                        <tr>
-                            <th>Zona / movimiento</th>
-                            <th>Rango anatómico estudiado</th>
-                            <th>Tamaño de franja</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Zona / movimiento</th><th>Rango anatómico estudiado</th><th>Tamaño de franja</th><th>Estado</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
-            <p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p>
+        `;
+    }
+
+    function sustainedIntro() {
+        return `
+            <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
+            <p>
+                Se analizan episodios en los que una postura permanece más de 4 segundos dentro de la misma franja angular.<br>
+                <strong>Tronco:</strong> flexión/extensión en franjas de 10°, inclinación lateral y rotación axial en franjas de 2°.<br>
+                <strong>Cabeza:</strong> flexión/extensión en franjas de 5°, lateralización y rotación axial en franjas de 2°.<br>
+                <strong>Rodillas:</strong> flexión en franjas de 10°. <strong>Tobillos:</strong> en franjas de 2°.<br>
+                Se muestran únicamente episodios estrictamente superiores a 4 segundos continuados.
+            </p>
         `;
     }
 
     function renderSustainedPending() {
         const container = document.getElementById("postureResults");
         if (!container) return;
-        container.innerHTML = sustainedStudyTable("Pendiente de análisis");
+        container.innerHTML = sustainedIntro() + sustainedStudyTable("Pendiente de análisis") + `<p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p>`;
     }
 
     window.updateFileInfo = function (file, videoIndex) {
@@ -144,72 +147,53 @@
         container.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Medición</th><th>Tiempo total</th><th>Media % exposición</th><th>Máximo tiempo</th><th>Episodios</th><th>Vídeos</th></tr></thead><tbody>${rows || `<tr><td colspan="6">Sin resultados.</td></tr>`}</tbody></table></div>`;
     };
 
+    function renderSustainedResults(results) {
+        let html = sustainedIntro();
+
+        (Array.isArray(results) ? results : []).forEach(result => {
+            const episodes = getSustainedResults(result);
+            html += `<h4>Vídeo ${escapeHtml(result.videoNumber)} — ${escapeHtml(result.fileName)}</h4>`;
+            if (!episodes.length) {
+                html += `<p><strong>No se han detectado posturas mantenidas durante más de 4 segundos continuados en este vídeo.</strong></p>`;
+                return;
+            }
+            html += `<div class="table-wrapper"><table class="sustained-posture-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>Ángulo inicio / medio / final</th><th>Inicio</th><th>Fin</th><th>Tiempo mantenido</th></tr></thead><tbody>`;
+            episodes.sort((a, b) => Number(a.startTime) - Number(b.startTime)).forEach(episode => {
+                html += `<tr><td>${escapeHtml(episode.label || episode.measurement)}</td><td>${escapeHtml(episode.bandLabel)}</td><td>${number(episode.startAngle, 1)}° / ${number(episode.averageAngle, 1)}° / ${number(episode.endAngle, 1)}°</td><td>${seconds(episode.startTime)}</td><td>${seconds(episode.endTime)}</td><td><strong>${seconds(episode.duration)}</strong></td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+        });
+
+        const allEpisodes = (Array.isArray(results) ? results : []).flatMap(result => getSustainedResults(result).map(episode => ({ ...episode, videoNumber: result.videoNumber })));
+        if (!allEpisodes.length) {
+            html += `<p><strong>No se han detectado episodios de posturas mantenidas durante más de 4 segundos continuados en ninguna de las posturas analizadas: tronco, cabeza, rodillas o tobillos.</strong></p>`;
+        } else {
+            const groups = {};
+            allEpisodes.forEach(episode => {
+                const key = `${episode.measurement}|${episode.bandLower}|${episode.bandUpper}`;
+                if (!groups[key]) groups[key] = { label: episode.label || episode.measurement, bandLabel: episode.bandLabel, occurrences: 0, totalTime: 0, maxTime: 0, videos: new Set(), details: [] };
+                groups[key].occurrences++;
+                groups[key].totalTime += Number(episode.duration) || 0;
+                groups[key].maxTime = Math.max(groups[key].maxTime, Number(episode.duration) || 0);
+                groups[key].videos.add(String(episode.videoNumber));
+                groups[key].details.push(`V${episode.videoNumber}: ${seconds(episode.startTime)}–${seconds(episode.endTime)} (${number(episode.averageAngle, 1)}°)`);
+            });
+            html += `<h4>Resultados globales</h4><div class="table-wrapper"><table class="sustained-posture-global-table"><thead><tr><th>Postura</th><th>Franja angular</th><th>Veces</th><th>Tiempo total</th><th>Máximo episodio</th><th>Vídeos</th><th>Detalle</th></tr></thead><tbody>`;
+            Object.values(groups).sort((a, b) => b.totalTime - a.totalTime).forEach(group => {
+                html += `<tr><td>${escapeHtml(group.label)}</td><td>${escapeHtml(group.bandLabel)}</td><td>${group.occurrences}</td><td>${seconds(group.totalTime)}</td><td>${seconds(group.maxTime)}</td><td>${escapeHtml(Array.from(group.videos).sort((a,b)=>Number(a)-Number(b)).join(", "))}</td><td>${escapeHtml(group.details.join(" | "))}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        html += `<h4>Rangos y franjas estudiados</h4>${sustainedStudyTable("Analizado")}<p><strong>Criterio:</strong> solo se consideran episodios estrictamente superiores a 4 segundos continuados dentro de la misma franja angular.</p>`;
+        return html;
+    }
+
     window.showCombinedPostureResults = function (results) {
         const container = document.getElementById("postureResults");
         if (!container) return;
-
-        const episodes = [];
-        (Array.isArray(results) ? results : []).forEach(result => {
-            getSustainedResults(result).forEach(episode => {
-                episodes.push({ ...episode, videoNumber: result.videoNumber, fileName: result.fileName });
-            });
-        });
-
-        if (!episodes.length) {
-            container.innerHTML = sustainedStudyTable("No se han detectado posturas mantenidas durante más de 4 segundos continuados");
-            return;
-        }
-
-        episodes.sort((a, b) => (Number(a.videoNumber) || 0) - (Number(b.videoNumber) || 0) || Number(a.startTime) - Number(b.startTime));
-
-        const detailRows = episodes.map(episode => `<tr>
-            <td>${escapeHtml(episode.videoNumber)}</td>
-            <td>${escapeHtml(episode.label)}</td>
-            <td>${escapeHtml(episode.bandLabel)}</td>
-            <td>${number(episode.startAngle, 2)}°<br>${number(episode.averageAngle, 2)}°<br>${number(episode.endAngle, 2)}°</td>
-            <td>${seconds(episode.startTime)}</td>
-            <td>${seconds(episode.endTime)}</td>
-            <td><strong>${seconds(episode.duration)}</strong></td>
-        </tr>`).join("");
-
-        const groups = {};
-        episodes.forEach(episode => {
-            const key = `${episode.measurement}|${episode.bandLower}|${episode.bandUpper}`;
-            if (!groups[key]) groups[key] = { label: episode.label, bandLabel: episode.bandLabel, occurrences: 0, totalTime: 0, maxTime: 0, videos: new Set() };
-            groups[key].occurrences++;
-            groups[key].totalTime += Number(episode.duration) || 0;
-            groups[key].maxTime = Math.max(groups[key].maxTime, Number(episode.duration) || 0);
-            groups[key].videos.add(String(episode.videoNumber));
-        });
-
-        const globalRows = Object.values(groups).sort((a, b) => b.totalTime - a.totalTime).map(group => `<tr>
-            <td>${escapeHtml(group.label)}</td>
-            <td>${escapeHtml(group.bandLabel)}</td>
-            <td>${group.occurrences}</td>
-            <td>${seconds(group.totalTime)}</td>
-            <td>${seconds(group.maxTime)}</td>
-            <td>${escapeHtml(Array.from(group.videos).sort((a, b) => Number(a) - Number(b)).join(", "))}</td>
-        </tr>`).join("");
-
-        container.innerHTML = `
-            <h3>Posturas mantenidas durante más de 4 segundos continuados</h3>
-            <p>Se han detectado episodios estrictamente superiores a 4 segundos dentro de una misma franja angular.</p>
-            <h4>Detalle por vídeo</h4>
-            <div class="table-wrapper"><table>
-                <thead><tr><th>Vídeo</th><th>Postura</th><th>Franja</th><th>Ángulo<br>inicio / medio / final</th><th>Inicio</th><th>Fin</th><th>Tiempo mantenido</th></tr></thead>
-                <tbody>${detailRows}</tbody>
-            </table></div>
-            <h4>Resumen global</h4>
-            <div class="table-wrapper"><table>
-                <thead><tr><th>Postura</th><th>Franja</th><th>N.º veces</th><th>Tiempo total</th><th>Mayor episodio</th><th>Vídeos</th></tr></thead>
-                <tbody>${globalRows}</tbody>
-            </table></div>
-            <h4>Rangos y franjas estudiados</h4>
-            ${sustainedStudyTable("Analizado")}
-        `;
+        container.innerHTML = renderSustainedResults(results);
     };
-
-    window.renderSustainedPostures = function () { return true; };
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", renderSustainedPending);
