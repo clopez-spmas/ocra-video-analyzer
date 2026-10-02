@@ -586,6 +586,65 @@ function buildBodySectionOverview(records) {
     return sections;
 }
 
+
+function ensureManualConfirmationStore() {
+    if (!pmfProject.analysis.manualConfirmations || typeof pmfProject.analysis.manualConfirmations !== "object") {
+        pmfProject.analysis.manualConfirmations = {};
+    }
+}
+
+function setManualConfirmation(key, value, note = "") {
+    ensureManualConfirmationStore();
+    pmfProject.analysis.manualConfirmations[key] = {
+        confirmed:true,
+        value,
+        technician:pmfProject.identification?.analyst || null,
+        confirmedAt:new Date().toISOString(),
+        note
+    };
+    touchProject(false);
+}
+
+function manualControlForResult(r) {
+    if (!r?.manualKey || r.status !== PMFCriteria.RESULT.NEEDS_CONFIRMATION) return "";
+
+    const existing = pmfProject.analysis?.manualConfirmations?.[r.manualKey]?.value ?? null;
+    const isSupport = r.manualKey.includes("fullSupport");
+
+    if (isSupport) {
+        return `
+            <div class="pmf-manual-control" data-manual-key="${escapeHtml(r.manualKey)}">
+                <label><strong>Confirmación técnica:</strong>
+                    <select data-manual-select>
+                        <option value="">-- seleccionar --</option>
+                        <option value="true" ${existing===true?"selected":""}>Sí, existe soporte completo</option>
+                        <option value="false" ${existing===false?"selected":""}>No existe soporte completo</option>
+                    </select>
+                </label>
+                <button type="button" data-apply-manual>Aplicar y recalcular</button>
+            </div>
+        `;
+    }
+
+    return "";
+}
+
+function bindManualControls() {
+    document.querySelectorAll(".pmf-manual-control").forEach(block => {
+        block.querySelector("[data-apply-manual]")?.addEventListener("click", () => {
+            const key = block.dataset.manualKey;
+            const select = block.querySelector("[data-manual-select]");
+            if (!key || !select || select.value === "") return;
+            const value = select.value === "true";
+            setManualConfirmation(key, value);
+            const ordered = [...pmfProject.kinoveaFiles].sort((a,b)=>Number(a.videoIndex)-Number(b.videoIndex));
+            pmfProject.analysis.bodySections = classifyPMFSections(ordered);
+            renderAnalysisResults();
+            setStatus("Confirmación técnica aplicada y clasificación recalculada.", "ok");
+        });
+    });
+}
+
 function renderAnalysisResults() {
     const container = document.getElementById("bodySectionResults");
     if (!container) return;
@@ -601,7 +660,8 @@ function renderAnalysisResults() {
                 Number.isFinite(cp) ? `tiempo crítico ${cp.toFixed(1)}%` : null,
                 Number.isFinite(staticSec) ? `estática acumulada ${staticSec.toFixed(2)} s` : null
             ].filter(Boolean).join(" · ");
-            return `<div class="pmf-result-line"><strong>V${r.videoNumber} · ${escapeHtml(r.mode)} · ${escapeHtml(r.measurement)}:</strong> ${escapeHtml(r.status)}<br><span>${escapeHtml(r.reason)}</span>${metrics ? `<br><small>${escapeHtml(metrics)}</small>` : ""}</div>`;
+            const manual = manualControlForResult(r);
+            return `<div class="pmf-result-line"><strong>V${r.videoNumber} · ${escapeHtml(r.mode)} · ${escapeHtml(r.measurement)}:</strong> ${escapeHtml(r.status)}<br><span>${escapeHtml(r.reason)}</span>${metrics ? `<br><small>${escapeHtml(metrics)}</small>` : ""}${manual}</div>`;
         }).join("");
         const reason = section.reason ? `<div class="pmf-result-line">${escapeHtml(section.reason)}</div>` : "";
         return `<tr><td><strong>${escapeHtml(section.label)}</strong></td><td><strong>${escapeHtml(section.status)}</strong></td><td>${details || reason || "Sin datos suficientes"}</td></tr>`;
@@ -616,6 +676,7 @@ function renderAnalysisResults() {
         </div>
         <p class="pmf-note">El resultado de cada sección se obtiene de la situación más desfavorable de las mediciones y vídeos disponibles. No se calcula ningún resultado global. Los casos que dependen de una condición observacional no inferible automáticamente quedan como “REQUIERE_CONFIRMACION”.</p>
     `;
+    bindManualControls();
 }
 
 function formatDeg(value) {
