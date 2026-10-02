@@ -179,6 +179,127 @@ function evaluateHeadStatic({ motion, angle, fullHeadSupport = null }) {
     return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"El criterio seleccionado requiere datos adicionales o criterio de duración no codificado todavía.","STAT_HEAD_PENDING",{motion,angle:a});
 }
 
+
+function evaluateKneeDynamic({ posture, internalAngle, standingFlexion, seatedExcursion, frequencyPerMinute }) {
+    const f=Number(frequencyPerMinute);
+    if(!Number.isFinite(f)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta frecuencia válida.","DYN_KNEE");
+
+    if(posture==="standing"){
+        const flex=Number(standingFlexion);
+        if(!Number.isFinite(flex)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta flexión de rodilla válida.","DYN_KNEE_STANDING");
+        if(flex < 135){
+            return pmfResult(PMF_RESULT.ACCEPTABLE,"Flexión de rodilla de pie inferior a 135°.","DYN_KNEE_STANDING_LT135",{standingFlexion:flex,frequencyPerMinute:f});
+        }
+        return pmfResult(
+            f < PMF_FREQUENCY_LIMIT ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
+            f < PMF_FREQUENCY_LIMIT
+                ? "Flexión de rodilla próxima o superior a 135° con frecuencia inferior a 2 mov/min."
+                : "Flexión de rodilla próxima o superior a 135° con frecuencia igual o superior a 2 mov/min.",
+            "DYN_KNEE_STANDING_135",
+            {standingFlexion:flex,frequencyPerMinute:f}
+        );
+    }
+
+    if(posture==="seated"){
+        const excursion=Number(seatedExcursion);
+        const internal=Number(internalAngle);
+        if(!Number.isFinite(excursion) || !Number.isFinite(internal)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta ángulo de rodilla sentado válido.","DYN_KNEE_SEATED");
+        if(excursion < 40){
+            return pmfResult(PMF_RESULT.ACCEPTABLE,"Excursión de rodilla sentado inferior a 40° respecto a 90°.","DYN_KNEE_SEATED_LT40",{internalAngle:internal,seatedExcursion:excursion,frequencyPerMinute:f});
+        }
+        return pmfResult(
+            f < PMF_FREQUENCY_LIMIT ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
+            f < PMF_FREQUENCY_LIMIT
+                ? "Excursión próxima o superior a 40° con frecuencia inferior a 2 mov/min."
+                : "Excursión próxima o superior a 40° con frecuencia igual o superior a 2 mov/min.",
+            "DYN_KNEE_SEATED_40",
+            {internalAngle:internal,seatedExcursion:excursion,frequencyPerMinute:f}
+        );
+    }
+
+    return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"Debe seleccionarse postura sentado o de pie.","DYN_KNEE_POSTURE",{posture});
+}
+
+function evaluateKneeStatic({ posture, internalAngle, standingFlexion, ischialSupport = null, trunkPosteriorInclined = null }) {
+    const internal=Number(internalAngle);
+
+    if(posture==="standing"){
+        const flex=Number(standingFlexion);
+        if(!Number.isFinite(flex)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta flexión de rodilla válida.","STAT_KNEE_STANDING");
+        if(ischialSupport===true){
+            return pmfResult(PMF_RESULT.ACCEPTABLE,"Postura de pie con apoyo isquiotibial.","STAT_KNEE_STANDING_ISCHIAL",{standingFlexion:flex,ischialSupport});
+        }
+        if(flex < 135){
+            return pmfResult(PMF_RESULT.ACCEPTABLE,"Flexión estática de rodilla de pie inferior a 135°.","STAT_KNEE_STANDING_LT135",{standingFlexion:flex,ischialSupport});
+        }
+        if(ischialSupport===null){
+            return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"Debe confirmarse si existe apoyo isquiotibial.","STAT_KNEE_STANDING_SUPPORT",{standingFlexion:flex});
+        }
+        return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,"Flexión estática de rodilla de pie en el límite o superior sin apoyo isquiotibial.","STAT_KNEE_STANDING_135",{standingFlexion:flex,ischialSupport});
+    }
+
+    if(posture==="seated"){
+        if(!Number.isFinite(internal)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta ángulo interno de rodilla válido.","STAT_KNEE_SEATED");
+        if(internal>=90 && internal<=135){
+            return pmfResult(PMF_RESULT.ACCEPTABLE,"Ángulo interno de rodilla sentado entre 90° y 135°.","STAT_KNEE_SEATED_90_135",{internalAngle:internal});
+        }
+        if(internal<90){
+            return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,"Ángulo interno de rodilla sentado inferior a 90°.","STAT_KNEE_SEATED_LT90",{internalAngle:internal});
+        }
+        if(internal>135){
+            if(trunkPosteriorInclined===null){
+                return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"Con rodilla >135° debe confirmarse si el tronco está posteriormente inclinado.","STAT_KNEE_SEATED_GT135_TRUNK",{internalAngle:internal});
+            }
+            return pmfResult(
+                trunkPosteriorInclined ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
+                trunkPosteriorInclined
+                    ? "Rodilla >135° con tronco posteriormente inclinado."
+                    : "Rodilla >135° sin tronco posteriormente inclinado.",
+                "STAT_KNEE_SEATED_GT135_TRUNK",
+                {internalAngle:internal,trunkPosteriorInclined}
+            );
+        }
+    }
+
+    return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"Debe seleccionarse postura sentado o de pie.","STAT_KNEE_POSTURE",{posture});
+}
+
+function evaluateAnkleDynamic({ dorsiPlantarAngle, frequencyPerMinute }) {
+    const a=Number(dorsiPlantarAngle), f=Number(frequencyPerMinute);
+    if(!Number.isFinite(a)||!Number.isFinite(f)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Faltan ángulo de tobillo o frecuencia válidos.","DYN_ANKLE");
+
+    const dorsiflexion=Math.max(0,a);
+    const plantarFlexion=Math.max(0,-a);
+    const exceedsRange=dorsiflexion>=20 || plantarFlexion>=50;
+
+    if(!exceedsRange && f<PMF_FREQUENCY_LIMIT){
+        return pmfResult(PMF_RESULT.ACCEPTABLE,"Tobillo dentro de rango y frecuencia inferior a 2 mov/min.","DYN_ANKLE_ACCEPT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f});
+    }
+    return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,
+        exceedsRange
+            ? "Se alcanza o supera el rango límite de tobillo."
+            : "Frecuencia de tobillo igual o superior a 2 mov/min.",
+        "DYN_ANKLE_LIMIT",
+        {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f}
+    );
+}
+
+function evaluateAnkleStatic({ dorsiPlantarAngle }) {
+    const a=Number(dorsiPlantarAngle);
+    if(!Number.isFinite(a)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta ángulo de tobillo válido.","STAT_ANKLE");
+    const dorsiflexion=Math.max(0,a);
+    const plantarFlexion=Math.max(0,-a);
+    const acceptable=dorsiflexion<20 && plantarFlexion<50;
+    return pmfResult(
+        acceptable ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
+        acceptable
+            ? "Postura estática de tobillo por debajo de los límites de dorsiflexión 20° y flexión plantar 50°."
+            : "Postura estática de tobillo en el límite o por encima del rango permitido.",
+        "STAT_ANKLE_LIMIT",
+        {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion}
+    );
+}
+
 window.PMFCriteria = {
     RESULT: PMF_RESULT,
     LIMITS: {frequencyPerMinute:PMF_FREQUENCY_LIMIT,criticalTimePercent:PMF_CRITICAL_TIME_LIMIT_PERCENT,staticMinSeconds:PMF_STATIC_MIN_SECONDS},
@@ -192,6 +313,12 @@ window.PMFCriteria = {
     },
     static: {
         trunk:evaluateTrunkStatic,
-        head:evaluateHeadStatic
+        head:evaluateHeadStatic,
+        knee:evaluateKneeStatic,
+        ankle:evaluateAnkleStatic
+    },
+    lowerLimb: {
+        kneeDynamic:evaluateKneeDynamic,
+        ankleDynamic:evaluateAnkleDynamic
     }
 };
