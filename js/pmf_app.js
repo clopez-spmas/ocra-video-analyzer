@@ -577,7 +577,7 @@ function classifyRecord(record) {
         }
 
         if(ankle.length){
-            const dyn=analyzeDynamicSeries(ankle,v=>v>-20&&v<50,v=>v<=-50||v>=20);
+            const dyn=analyzeDynamicSeries(ankle,v=>v>-50&&v<20,v=>v<=-50||v>=20);
             const criterion=PMFCriteria.lowerLimb.ankleDynamic({
                 dorsiPlantarAngle:dyn.extremeAngle,
                 frequencyPerMinute:dyn.frequencyPerMinute
@@ -674,24 +674,50 @@ function manualControlForResult(r) {
     if (!r?.manualKey || r.status !== PMFCriteria.RESULT.NEEDS_CONFIRMATION) return "";
 
     const existing = pmfProject.analysis?.manualConfirmations?.[r.manualKey]?.value ?? null;
-    const isSupport = r.manualKey.includes("fullSupport");
 
-    if (isSupport) {
-        return `
-            <div class="pmf-manual-control" data-manual-key="${escapeHtml(r.manualKey)}">
-                <label><strong>Confirmación técnica:</strong>
-                    <select data-manual-select>
-                        <option value="">-- seleccionar --</option>
-                        <option value="true" ${existing===true?"selected":""}>Sí, existe soporte completo</option>
-                        <option value="false" ${existing===false?"selected":""}>No existe soporte completo</option>
-                    </select>
-                </label>
-                <button type="button" data-apply-manual>Aplicar y recalcular</button>
-            </div>
+    let options = "";
+    let label = "Confirmación técnica";
+
+    if (r.manualKey.includes(".posture")) {
+        label = "Postura de referencia";
+        options = `
+            <option value="">-- seleccionar --</option>
+            <option value="standing" ${existing==="standing"?"selected":""}>De pie</option>
+            <option value="seated" ${existing==="seated"?"selected":""}>Sentado/a</option>
         `;
+    } else if (r.manualKey.includes("ischialSupport")) {
+        label = "Apoyo isquiotibial";
+        options = `
+            <option value="">-- seleccionar --</option>
+            <option value="true" ${existing===true?"selected":""}>Sí</option>
+            <option value="false" ${existing===false?"selected":""}>No</option>
+        `;
+    } else if (r.manualKey.includes("trunkPosteriorInclined")) {
+        label = "Tronco posteriormente inclinado";
+        options = `
+            <option value="">-- seleccionar --</option>
+            <option value="true" ${existing===true?"selected":""}>Sí</option>
+            <option value="false" ${existing===false?"selected":""}>No</option>
+        `;
+    } else if (r.manualKey.includes("fullSupport")) {
+        label = "Soporte completo";
+        options = `
+            <option value="">-- seleccionar --</option>
+            <option value="true" ${existing===true?"selected":""}>Sí, existe soporte completo</option>
+            <option value="false" ${existing===false?"selected":""}>No existe soporte completo</option>
+        `;
+    } else {
+        return "";
     }
 
-    return "";
+    return `
+        <div class="pmf-manual-control" data-manual-key="${escapeHtml(r.manualKey)}">
+            <label><strong>${label}:</strong>
+                <select data-manual-select>${options}</select>
+            </label>
+            <button type="button" data-apply-manual>Aplicar y recalcular</button>
+        </div>
+    `;
 }
 
 function bindManualControls() {
@@ -700,7 +726,9 @@ function bindManualControls() {
             const key = block.dataset.manualKey;
             const select = block.querySelector("[data-manual-select]");
             if (!key || !select || select.value === "") return;
-            const value = select.value === "true";
+            let value = select.value;
+            if (value === "true") value = true;
+            else if (value === "false") value = false;
             setManualConfirmation(key, value);
             const ordered = [...pmfProject.kinoveaFiles].sort((a,b)=>Number(a.videoIndex)-Number(b.videoIndex));
             pmfProject.analysis.bodySections = classifyPMFSections(ordered);
