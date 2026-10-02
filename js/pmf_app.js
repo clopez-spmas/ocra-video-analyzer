@@ -53,6 +53,7 @@ function bindIdentification() {
 
 function bindProjectActions() {
     document.getElementById("saveProjectButton")?.addEventListener("click", saveProject);
+    document.getElementById("runPMFAnalysisButton")?.addEventListener("click", runPMFAnalysis);
 
     document.getElementById("loadProjectInput")?.addEventListener("change", async event => {
         const file = event.target.files?.[0];
@@ -250,3 +251,147 @@ function escapeHtml(value) {
 }
 
 window.getPMFProject = () => PMFStorage.deepClone(pmfProject);
+
+
+async function runPMFAnalysis() {
+    const count = Number(pmfProject.configuration.videoCount) || 1;
+    if (pmfProject.kinoveaFiles.length < count) {
+        setStatus("Debes cargar los Kinovea de todos los vídeos configurados antes de analizar.", "error");
+        return;
+    }
+
+    try {
+        setStatus("Asigna los marcadores anatómicos de los vídeos.");
+        const ordered = [...pmfProject.kinoveaFiles].sort((a,b)=>Number(a.videoIndex)-Number(b.videoIndex));
+        const markersByVideo = ordered.map(record => Array.isArray(record?.extracted?.markers) ? record.extracted.markers : []);
+
+        if (typeof createAllMarkerMappingUI !== "function") {
+            throw new Error("No está disponible la interfaz de asignación de marcadores.");
+        }
+
+        const mappings = await createAllMarkerMappingUI(markersByVideo);
+
+        for (let i = 0; i < ordered.length; i++) {
+            const record = ordered[i];
+            const mapping = mappings[i];
+            record.processing.markerMapping = PMFStorage.deepClone(mapping);
+
+            if (typeof adaptKinoveaFrames !== "function") {
+                throw new Error("No está disponible el adaptador anatómico.");
+            }
+
+            const anatomicalFrames = adaptKinoveaFrames(record.extracted.frames, mapping);
+            record.processing.anatomicalFrames = PMFStorage.deepClone(anatomicalFrames);
+
+            if (typeof PMFSignedBiomechanics === "undefined") {
+                throw new Error("No está disponible la biomecánica signada PMF.");
+            }
+
+            const biomechanicalFrames = PMFSignedBiomechanics.analyze(anatomicalFrames);
+            record.processing.biomechanicalFrames = PMFStorage.deepClone(biomechanicalFrames);
+            record.processing.calculatedVariables = buildCalculatedVariables(biomechanicalFrames);
+            record.processing.traceability = {
+                generatedAt: new Date().toISOString(),
+                source: "PMFSignedBiomechanics",
+                selfTest: window.PMFSelfTestResult || null
+            };
+        }
+
+        pmfProject.analysis.bodySections = buildBodySectionOverview(ordered);
+        touchProject(false);
+        renderAnalysisResults();
+        setStatus("Análisis biomecánico PMF completado y guardado dentro del proyecto.", "ok");
+    } catch (error) {
+        console.error(error);
+        setStatus(error.message || "No se pudo completar el análisis PMF.", "error");
+    }
+}
+
+function buildCalculatedVariables(measurements) {
+    const names = [
+        "trunk_flexion_signed",
+        "trunk_lateral_signed",
+        "trunk_axial_rotation_signed",
+        "head_flexion_signed",
+        "head_lateral_signed",
+        "head_axial_rotation_signed",
+        "knee_flexion_left",
+        "knee_flexion_right",
+        "ankle_angle_left",
+        "ankle_angle_right"
+    ];
+
+    const out = {};
+    names.forEach(name => {
+        const series = PMFSignedBiomechanics.series(measurements, name);
+        if (!series.length) return;
+        const values = series.map(p => Number(p.value));
+        out[name] = {
+            min: Math.min(...values),
+            max: Math.max(...values),
+            mean: values.reduce((a,b)=>a+b,0)/values.length,
+            firstTimestamp: series[0].timestamp,
+            lastTimestamp: series[series.length-1].timestamp,
+            samples: series.length,
+            series
+        };
+    });
+    return out;
+}
+
+function buildBodySectionOverview(records) {
+    const sections = {
+        trunk: {label:"Tronco", status:"PENDIENTE_CLASIFICACION", measurements:[]},
+        head_neck: {label:"Cabeza / cuello", status:"PENDIENTE_CLASIFICACION", measurements:[]},
+        lower_right: {label:"Extremidad inferior derecha", status:"PENDIENTE_CLASIFICACION", measurements:[]},
+        lower_left: {label:"Extremidad inferior izquierda", status:"PENDIENTE_CLASIFICACION", measurements:[]}
+    };
+
+    for (const record of records) {
+        const vars = record?.processing?.calculatedVariables || {};
+        Object.entries(vars).forEach(([name, data]) => {
+            let section = null;
+            if (name.startsWith("trunk_")) section = "trunk";
+            else if (name.startsWith("head_")) section = "head_neck";
+            else if (name.endsWith("_right")) section = "lower_right";
+            else if (name.endsWith("_left")) section = "lower_left";
+            if (!section) return;
+            sections[section].measurements.push({
+                videoNumber: record.videoNumber,
+                name,
+                min: data.min,
+                max: data.max,
+                mean: data.mean,
+                samples: data.samples
+            });
+        });
+    }
+    return sections;
+}
+
+function renderAnalysisResults() {
+    const container = document.getElementById("bodySectionResults");
+    if (!container) return;
+
+    const sections = pmfProject.analysis?.bodySections || {};
+    const rows = Object.values(sections).map(section => {
+        const details = (section.measurements || []).map(m =>
+            `V${m.videoNumber} · ${escapeHtml(m.name)}: min ${formatDeg(m.min)}, máx ${formatDeg(m.max)}, media ${formatDeg(m.mean)}`
+        ).join("<br>");
+        return `<tr><td><strong>${escapeHtml(section.label)}</strong></td><td>${escapeHtml(section.status)}</td><td>${details || "Sin datos suficientes"}</td></tr>`;
+    }).join("");
+
+    container.innerHTML = `
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Sección corporal</th><th>Estado</th><th>Variables calculadas</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="3">Pendiente de análisis.</td></tr>'}</tbody>
+            </table>
+        </div>
+        <p class="pmf-note">En esta fase ya se calculan y conservan las variables biomecánicas signadas. La clasificación ergonómica se aplicará en la siguiente capa, utilizando estos datos y solicitando confirmación manual cuando el criterio no pueda inferirse automáticamente.</p>
+    `;
+}
+
+function formatDeg(value) {
+    return Number.isFinite(Number(value)) ? Number(value).toFixed(1) + "°" : "-";
+}
