@@ -183,12 +183,16 @@ function renderAnalysisSummary() {
     const count = Number(pmfProject.configuration.videoCount) || 1;
     const loaded = pmfProject.kinoveaFiles.length;
 
+    const criteriaReady = typeof PMFCriteria !== "undefined";
+    const engineReady = typeof PMFEngine !== "undefined";
     container.innerHTML = `
         <div class="pmf-summary">
             <p><strong>Vídeos configurados:</strong> ${count}</p>
             <p><strong>Kinovea persistidos:</strong> ${loaded} de ${count}</p>
+            <p><strong>Motor de criterios:</strong> ${criteriaReady ? "cargado" : "no disponible"}.</p>
+            <p><strong>Motor de movimientos y trazabilidad:</strong> ${engineReady ? "cargado" : "no disponible"}.</p>
             <p><strong>Resultado global:</strong> desactivado por diseño.</p>
-            <p><strong>Salida prevista:</strong> Aceptable / No aceptable por sección corporal, con trazabilidad y confirmación manual cuando proceda.</p>
+            <p><strong>Salida:</strong> Aceptable / No aceptable por sección corporal. Cuando falte una condición no inferible automáticamente, el estado será “Requiere confirmación”.</p>
         </div>
     `;
 }
