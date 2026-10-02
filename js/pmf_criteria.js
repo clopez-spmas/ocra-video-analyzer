@@ -94,9 +94,9 @@ function evaluateSymmetricDynamic({ angle, frequencyPerMinute, criticalTimePerce
     }
 
     return pmfResult(
-        t > PMF_CRITICAL_TIME_LIMIT_PERCENT ? PMF_RESULT.NOT_ACCEPTABLE : PMF_RESULT.ACCEPTABLE,
-        t > PMF_CRITICAL_TIME_LIMIT_PERCENT
-            ? `${label}: postura crítica durante más del 60% del tiempo de la tarea.`
+        t >= PMF_CRITICAL_TIME_LIMIT_PERCENT ? PMF_RESULT.NOT_ACCEPTABLE : PMF_RESULT.ACCEPTABLE,
+        t >= PMF_CRITICAL_TIME_LIMIT_PERCENT
+            ? `${label}: postura crítica durante el 60% o más del tiempo de la tarea.`
             : `${label}: frecuencia inferior a 2 mov/min y postura crítica no superior al 60% del tiempo de la tarea.`,
         criterionId + "_TIME",
         {angle:a,frequencyPerMinute:f,criticalTimePercent:t}
@@ -122,7 +122,7 @@ function evaluateHeadFlexionDynamic({ angle, frequencyPerMinute, criticalTimePer
     if(a>=-40 && a<=0) return pmfResult(PMF_RESULT.ACCEPTABLE,"Flexión/extensión de cabeza entre -40° y 0°.","DYN_HEAD_FLEX_NEUTRAL",{angle:a,frequencyPerMinute:f,criticalTimePercent:t});
     if(f>=PMF_FREQUENCY_LIMIT) return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,"Fuera del rango -40° a 0° y frecuencia igual o superior a 2 mov/min.","DYN_HEAD_FLEX_HIGH_FREQ",{angle:a,frequencyPerMinute:f,criticalTimePercent:t});
     if(!Number.isFinite(t)) return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"Debe determinarse el porcentaje de tiempo en postura crítica.","DYN_HEAD_FLEX_TIME",{angle:a,frequencyPerMinute:f});
-    return pmfResult(t>60?PMF_RESULT.NOT_ACCEPTABLE:PMF_RESULT.ACCEPTABLE,t>60?"Postura crítica durante más del 60% del tiempo de la tarea.":"Frecuencia inferior a 2 mov/min y postura crítica no superior al 60% del tiempo de la tarea.","DYN_HEAD_FLEX_TIME",{angle:a,frequencyPerMinute:f,criticalTimePercent:t});
+    return pmfResult(t>=60?PMF_RESULT.NOT_ACCEPTABLE:PMF_RESULT.ACCEPTABLE,t>=60?"Postura crítica durante el 60% o más del tiempo de la tarea.":"Frecuencia inferior a 2 mov/min y postura crítica no superior al 60% del tiempo de la tarea.","DYN_HEAD_FLEX_TIME",{angle:a,frequencyPerMinute:f,criticalTimePercent:t});
 }
 
 function evaluateTrunkStatic({ motion, angle, fullTrunkSupport = null, durationCriterionResult = null, lumbarConvex = null }) {
@@ -271,18 +271,14 @@ function evaluateAnkleDynamic({ dorsiPlantarAngle, frequencyPerMinute }) {
     const dorsiflexion=Math.max(0,a);
     const plantarFlexion=Math.max(0,-a);
 
-    if(dorsiflexion===20 || plantarFlexion===50){
-        return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"El documento utiliza límites estrictos (<20° / >20° y <50° / >50°); el valor exacto en el límite requiere confirmación técnica.","DYN_ANKLE_EXACT_LIMIT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f});
-    }
-
-    const exceedsRange=dorsiflexion>20 || plantarFlexion>50;
+    const exceedsRange=dorsiflexion>=20 || plantarFlexion>=50;
 
     if(!exceedsRange && f<PMF_FREQUENCY_LIMIT){
         return pmfResult(PMF_RESULT.ACCEPTABLE,"Tobillo dentro de rango y frecuencia inferior a 2 mov/min.","DYN_ANKLE_ACCEPT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f});
     }
     return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,
         exceedsRange
-            ? "Se supera el rango límite de tobillo."
+            ? "Se alcanza o supera el rango límite de tobillo."
             : "Frecuencia de tobillo igual o superior a 2 mov/min.",
         "DYN_ANKLE_LIMIT",
         {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f}
@@ -295,16 +291,12 @@ function evaluateAnkleStatic({ dorsiPlantarAngle }) {
     const dorsiflexion=Math.max(0,a);
     const plantarFlexion=Math.max(0,-a);
 
-    if(dorsiflexion===20 || plantarFlexion===50){
-        return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"El valor coincide exactamente con el límite expresado mediante desigualdades estrictas en el documento; requiere confirmación técnica.","STAT_ANKLE_EXACT_LIMIT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion});
-    }
-
     const acceptable=dorsiflexion<20 && plantarFlexion<50;
     return pmfResult(
         acceptable ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
         acceptable
             ? "Postura estática de tobillo por debajo de los límites de dorsiflexión 20° y flexión plantar 50°."
-            : "Postura estática de tobillo por encima del rango permitido.",
+            : "Postura estática de tobillo en el límite o por encima del rango permitido.",
         "STAT_ANKLE_LIMIT",
         {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion}
     );
