@@ -318,7 +318,13 @@ function buildCalculatedVariables(measurements) {
         "knee_flexion_left",
         "knee_flexion_right",
         "ankle_angle_left",
-        "ankle_angle_right"
+        "ankle_angle_right",
+        "knee_flexion_left_standing_flexion",
+        "knee_flexion_right_standing_flexion",
+        "knee_flexion_left_seated_excursion",
+        "knee_flexion_right_seated_excursion",
+        "ankle_angle_left_dorsi_plantar",
+        "ankle_angle_right_dorsi_plantar"
     ];
 
     const out = {};
@@ -520,6 +526,72 @@ function classifyRecord(record) {
         });
     }
 
+
+    // EXTREMIDADES INFERIORES
+    ["left","right"].forEach(side=>{
+        const section=side==="left"?"lower_left":"lower_right";
+        const postureKey=`v${record.videoNumber}.${section}.posture`;
+        const posture=pmfProject.analysis?.manualConfirmations?.[postureKey]?.value ?? null;
+
+        const kneeInternal=getSeriesFromRecord(record,`knee_flexion_${side}`);
+        const kneeStanding=getSeriesFromRecord(record,`knee_flexion_${side}_standing_flexion`);
+        const kneeSeatedExc=getSeriesFromRecord(record,`knee_flexion_${side}_seated_excursion`);
+        const ankle=getSeriesFromRecord(record,`ankle_angle_${side}_dorsi_plantar`);
+
+        if(kneeInternal.length){
+            if(!posture){
+                const criterion={status:PMFCriteria.RESULT.NEEDS_CONFIRMATION,reason:"Debe seleccionarse postura sentado o de pie para valorar la rodilla.",criterionId:"LOWER_POSTURE_REQUIRED",inputs:{posture:null}};
+                out.push(classifyMeasurement({record,section,mode:"dynamic",measurement:"Rodilla",calculated:{},criterionResult:criterion,manualKey:postureKey}));
+            } else {
+                const internalExtreme=seriesExtreme(kneeInternal);
+                const dynSeries=posture==="standing"?kneeStanding:kneeSeatedExc;
+                const target=posture==="standing"?(v=>v>=135):(v=>v>=40);
+                const neutral=posture==="standing"?(v=>v<135):(v=>v<40);
+                const dyn=analyzeDynamicSeries(dynSeries,neutral,target);
+                const criterion=PMFCriteria.lowerLimb.kneeDynamic({
+                    posture,
+                    internalAngle:internalExtreme?.value,
+                    standingFlexion:posture==="standing"?dyn.extremeAngle:null,
+                    seatedExcursion:posture==="seated"?dyn.extremeAngle:null,
+                    frequencyPerMinute:dyn.frequencyPerMinute
+                });
+                out.push(classifyMeasurement({record,section,mode:"dynamic",measurement:"Rodilla",calculated:dyn,criterionResult:criterion,manualKey:postureKey}));
+
+                const staticPred=posture==="standing"?(v=>v>=135):(v=>v<90||v>135);
+                const stSource=posture==="standing"?kneeStanding:kneeInternal;
+                const st=analyzeStaticSeries(stSource,staticPred);
+                if(st.episodes.length){
+                    const supportKey=posture==="standing"
+                        ? `v${record.videoNumber}.${section}.ischialSupport`
+                        : `v${record.videoNumber}.${section}.trunkPosteriorInclined`;
+                    const criterionStatic=PMFCriteria.static.knee({
+                        posture,
+                        internalAngle:posture==="seated"?st.worstEpisode?.averageAngle:internalExtreme?.value,
+                        standingFlexion:posture==="standing"?st.worstEpisode?.averageAngle:null,
+                        ischialSupport:posture==="standing"?(pmfProject.analysis?.manualConfirmations?.[supportKey]?.value ?? null):null,
+                        trunkPosteriorInclined:posture==="seated"?(pmfProject.analysis?.manualConfirmations?.[supportKey]?.value ?? null):null
+                    });
+                    out.push(classifyMeasurement({record,section,mode:"static",measurement:"Rodilla",calculated:st,criterionResult:criterionStatic,manualKey:supportKey}));
+                }
+            }
+        }
+
+        if(ankle.length){
+            const dyn=analyzeDynamicSeries(ankle,v=>v>-20&&v<50,v=>v<=-50||v>=20);
+            const criterion=PMFCriteria.lowerLimb.ankleDynamic({
+                dorsiPlantarAngle:dyn.extremeAngle,
+                frequencyPerMinute:dyn.frequencyPerMinute
+            });
+            out.push(classifyMeasurement({record,section,mode:"dynamic",measurement:"Tobillo",calculated:dyn,criterionResult:criterion}));
+
+            const st=analyzeStaticSeries(ankle,v=>v>=20||v<=-50);
+            if(st.episodes.length){
+                const criterionStatic=PMFCriteria.static.ankle({dorsiPlantarAngle:st.worstEpisode?.averageAngle});
+                out.push(classifyMeasurement({record,section,mode:"static",measurement:"Tobillo",calculated:st,criterionResult:criterionStatic}));
+            }
+        }
+    });
+
     return out;
 }
 
@@ -527,8 +599,8 @@ function classifyPMFSections(records) {
     const sections = {
         trunk:{label:"Tronco",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]},
         head_neck:{label:"Cabeza / cuello",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]},
-        lower_right:{label:"Extremidad inferior derecha",status:PMFCriteria.RESULT.NEEDS_CONFIRMATION,results:[],traceability:[]},
-        lower_left:{label:"Extremidad inferior izquierda",status:PMFCriteria.RESULT.NEEDS_CONFIRMATION,results:[],traceability:[]}
+        lower_right:{label:"Extremidad inferior derecha",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]},
+        lower_left:{label:"Extremidad inferior izquierda",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]}
     };
 
     const all=[];
@@ -540,17 +612,10 @@ function classifyPMFSections(records) {
         sections[result.section].traceability.push(result.traceability);
     }
 
-    ["trunk","head_neck"].forEach(key=>{
+    ["trunk","head_neck","lower_right","lower_left"].forEach(key=>{
         const results=sections[key].results;
         const worst=PMFEngine.worstStatus(results.map(r=>({status:r.status,reason:r.reason,criterionId:r.criterionId})));
         sections[key].status=worst?.status || PMFCriteria.RESULT.NOT_EVALUATED;
-    });
-
-    // Extremidades inferiores: se conservan derecha/izquierda.
-    // La clasificación completa se activará cuando se confirme postura sentado/de pie
-    // y la convención angular de rodilla/tobillo respecto al documento.
-    ["lower_right","lower_left"].forEach(key=>{
-        sections[key].reason="Pendiente de confirmación de postura de referencia (sentado/de pie) para aplicar el criterio de rodilla/tobillo sin inferencias.";
     });
 
     return sections;
