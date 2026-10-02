@@ -373,6 +373,26 @@ function analyzeDynamicSeries(series, neutralPredicate, targetPredicate) {
     };
 }
 
+function ankleWorstPoint(series) {
+    const valid=(Array.isArray(series)?series:[]).filter(p=>Number.isFinite(Number(p.value)));
+    if(!valid.length) return null;
+    const severity=p=>{
+        const v=Number(p.value);
+        return v>=0 ? v/20 : Math.abs(v)/50;
+    };
+    return valid.reduce((worst,p)=>severity(p)>severity(worst)?p:worst,valid[0]);
+}
+
+function ankleWorstEpisode(episodes) {
+    const valid=(Array.isArray(episodes)?episodes:[]).filter(e=>Number.isFinite(Number(e.averageAngle)));
+    if(!valid.length) return null;
+    const severity=e=>{
+        const v=Number(e.averageAngle);
+        return v>=0 ? v/20 : Math.abs(v)/50;
+    };
+    return valid.reduce((worst,e)=>severity(e)>severity(worst)?e:worst,valid[0]);
+}
+
 function analyzeStaticSeries(series, bandPredicate) {
     const episodes = PMFEngine.detectStaticEpisodes(series, bandPredicate, PMFCriteria.LIMITS.staticMinSeconds);
     return {
@@ -578,6 +598,9 @@ function classifyRecord(record) {
 
         if(ankle.length){
             const dyn=analyzeDynamicSeries(ankle,v=>v>-50&&v<20,v=>v<=-50||v>=20);
+            const ankleWorst=ankleWorstPoint(ankle);
+            dyn.extremeAngle=ankleWorst ? Number(ankleWorst.value) : dyn.extremeAngle;
+            dyn.extremeTimestamp=ankleWorst ? Number(ankleWorst.timestamp) : dyn.extremeTimestamp;
             const criterion=PMFCriteria.lowerLimb.ankleDynamic({
                 dorsiPlantarAngle:dyn.extremeAngle,
                 frequencyPerMinute:dyn.frequencyPerMinute
@@ -586,6 +609,7 @@ function classifyRecord(record) {
 
             const st=analyzeStaticSeries(ankle,v=>v>=20||v<=-50);
             if(st.episodes.length){
+                st.worstEpisode=ankleWorstEpisode(st.episodes);
                 const criterionStatic=PMFCriteria.static.ankle({dorsiPlantarAngle:st.worstEpisode?.averageAngle});
                 out.push(classifyMeasurement({record,section,mode:"static",measurement:"Tobillo",calculated:st,criterionResult:criterionStatic}));
             }
