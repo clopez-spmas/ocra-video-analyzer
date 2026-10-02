@@ -134,7 +134,20 @@ function pmfFrameMeasurements(frame) {
     ];
     for(const [name,aN,bN,cN,section] of limbDefs){
         const a=pmfResolve(frame,aN),b=pmfResolve(frame,bN),c=pmfResolve(frame,cN);
-        push(name,pmfUnsignedAngleABC(a,b,c),{section,motion:name});
+        const res=pmfUnsignedAngleABC(a,b,c);
+        push(name,res,{section,motion:name});
+
+        if(res.valid && name.startsWith("knee_flexion_")){
+            const flexion=180-Number(res.value);
+            push(name+"_standing_flexion",{value:flexion,valid:Number.isFinite(flexion)},{section,motion:"knee_standing_flexion",derivedFrom:name,formula:"180 - internal_angle"});
+            const seatedExcursion=Math.abs(Number(res.value)-90);
+            push(name+"_seated_excursion",{value:seatedExcursion,valid:Number.isFinite(seatedExcursion)},{section,motion:"knee_seated_excursion",derivedFrom:name,formula:"abs(internal_angle - 90)"});
+        }
+
+        if(res.valid && name.startsWith("ankle_angle_")){
+            const dorsiPlantar=90-Number(res.value);
+            push(name+"_dorsi_plantar",{value:dorsiPlantar,valid:Number.isFinite(dorsiPlantar)},{section,motion:"ankle_dorsi_plantar",derivedFrom:name,formula:"90 - internal_angle",signConvention:"positive=dorsiflexion; negative=plantar_flexion"});
+        }
     }
 
     return out;
