@@ -270,14 +270,19 @@ function evaluateAnkleDynamic({ dorsiPlantarAngle, frequencyPerMinute }) {
 
     const dorsiflexion=Math.max(0,a);
     const plantarFlexion=Math.max(0,-a);
-    const exceedsRange=dorsiflexion>=20 || plantarFlexion>=50;
+
+    if(dorsiflexion===20 || plantarFlexion===50){
+        return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"El documento utiliza límites estrictos (<20° / >20° y <50° / >50°); el valor exacto en el límite requiere confirmación técnica.","DYN_ANKLE_EXACT_LIMIT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f});
+    }
+
+    const exceedsRange=dorsiflexion>20 || plantarFlexion>50;
 
     if(!exceedsRange && f<PMF_FREQUENCY_LIMIT){
         return pmfResult(PMF_RESULT.ACCEPTABLE,"Tobillo dentro de rango y frecuencia inferior a 2 mov/min.","DYN_ANKLE_ACCEPT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f});
     }
     return pmfResult(PMF_RESULT.NOT_ACCEPTABLE,
         exceedsRange
-            ? "Se alcanza o supera el rango límite de tobillo."
+            ? "Se supera el rango límite de tobillo."
             : "Frecuencia de tobillo igual o superior a 2 mov/min.",
         "DYN_ANKLE_LIMIT",
         {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion,frequencyPerMinute:f}
@@ -289,12 +294,17 @@ function evaluateAnkleStatic({ dorsiPlantarAngle }) {
     if(!Number.isFinite(a)) return pmfResult(PMF_RESULT.NOT_EVALUATED,"Falta ángulo de tobillo válido.","STAT_ANKLE");
     const dorsiflexion=Math.max(0,a);
     const plantarFlexion=Math.max(0,-a);
+
+    if(dorsiflexion===20 || plantarFlexion===50){
+        return pmfResult(PMF_RESULT.NEEDS_CONFIRMATION,"El valor coincide exactamente con el límite expresado mediante desigualdades estrictas en el documento; requiere confirmación técnica.","STAT_ANKLE_EXACT_LIMIT",{dorsiPlantarAngle:a,dorsiflexion,plantarFlexion});
+    }
+
     const acceptable=dorsiflexion<20 && plantarFlexion<50;
     return pmfResult(
         acceptable ? PMF_RESULT.ACCEPTABLE : PMF_RESULT.NOT_ACCEPTABLE,
         acceptable
             ? "Postura estática de tobillo por debajo de los límites de dorsiflexión 20° y flexión plantar 50°."
-            : "Postura estática de tobillo en el límite o por encima del rango permitido.",
+            : "Postura estática de tobillo por encima del rango permitido.",
         "STAT_ANKLE_LIMIT",
         {dorsiPlantarAngle:a,dorsiflexion,plantarFlexion}
     );
