@@ -297,10 +297,10 @@ async function runPMFAnalysis() {
             };
         }
 
-        pmfProject.analysis.bodySections = buildBodySectionOverview(ordered);
+        pmfProject.analysis.bodySections = classifyPMFSections(ordered);
         touchProject(false);
         renderAnalysisResults();
-        setStatus("Análisis biomecánico PMF completado y guardado dentro del proyecto.", "ok");
+        setStatus("Análisis PMF completado: variables, frecuencia, tiempo crítico, estáticas y clasificación por sección guardadas en el proyecto.", "ok");
     } catch (error) {
         console.error(error);
         setStatus(error.message || "No se pudo completar el análisis PMF.", "error");
@@ -339,6 +339,223 @@ function buildCalculatedVariables(measurements) {
     return out;
 }
 
+
+function getSeriesFromRecord(record, name) {
+    return record?.processing?.calculatedVariables?.[name]?.series || [];
+}
+
+function seriesExtreme(series) {
+    const valid = (Array.isArray(series) ? series : []).filter(p => Number.isFinite(Number(p.value)));
+    if (!valid.length) return null;
+    return valid.reduce((worst, p) => Math.abs(Number(p.value)) > Math.abs(Number(worst.value)) ? p : worst, valid[0]);
+}
+
+function analyzeDynamicSeries(series, neutralPredicate, targetPredicate) {
+    const movement = PMFEngine.countExcursions(series, neutralPredicate, targetPredicate);
+    const critical = PMFEngine.criticalTime(series, targetPredicate);
+    const extreme = seriesExtreme(series);
+    return {
+        movementCount: movement.count,
+        frequencyPerMinute: movement.frequencyPerMinute,
+        movementEvents: movement.events,
+        incompleteExcursion: movement.incompleteExcursion || false,
+        criticalSeconds: critical.criticalSeconds,
+        totalSeconds: critical.totalSeconds,
+        criticalPercent: critical.criticalPercent,
+        extremeAngle: extreme ? Number(extreme.value) : null,
+        extremeTimestamp: extreme ? Number(extreme.timestamp) : null
+    };
+}
+
+function analyzeStaticSeries(series, bandPredicate) {
+    const episodes = PMFEngine.detectStaticEpisodes(series, bandPredicate, PMFCriteria.LIMITS.staticMinSeconds);
+    return {
+        episodes,
+        totalStaticSeconds: episodes.reduce((sum, e) => sum + Number(e.duration || 0), 0),
+        maxEpisodeSeconds: episodes.reduce((max, e) => Math.max(max, Number(e.duration || 0)), 0),
+        worstEpisode: episodes.reduce((worst, e) => {
+            if (!worst) return e;
+            return Math.abs(Number(e.averageAngle || 0)) > Math.abs(Number(worst.averageAngle || 0)) ? e : worst;
+        }, null)
+    };
+}
+
+function manualValue(key) {
+    return pmfProject.analysis?.manualConfirmations?.[key]?.value ?? null;
+}
+
+function classifyMeasurement({record, section, mode, measurement, calculated, criterionResult, manualKey = null}) {
+    const trace = PMFEngine.trace({
+        section,
+        mode,
+        measurement,
+        sourceVideos:[record.videoNumber],
+        calculated,
+        criterionResult,
+        manual: manualKey ? (pmfProject.analysis?.manualConfirmations?.[manualKey] || {}) : {}
+    });
+    return {
+        videoNumber: record.videoNumber,
+        fileName: record.source?.fileName || null,
+        section,
+        mode,
+        measurement,
+        status: criterionResult.status,
+        reason: criterionResult.reason,
+        criterionId: criterionResult.criterionId,
+        calculated,
+        manualKey,
+        traceability: trace
+    };
+}
+
+function classifyRecord(record) {
+    const out=[];
+
+    // TRONCO DINÁMICO - flexión/extensión
+    {
+        const s=getSeriesFromRecord(record,"trunk_flexion_signed");
+        if(s.length){
+            const dyn=analyzeDynamicSeries(s, v=>v>=0&&v<=20, v=>v<0||v>20);
+            const key=`v${record.videoNumber}.dynamic.trunk.fullSupport`;
+            const criterion=PMFCriteria.dynamic.trunkFlexion({
+                angle:dyn.extremeAngle,
+                frequencyPerMinute:dyn.frequencyPerMinute,
+                fullTrunkSupport:manualValue(key)
+            });
+            out.push(classifyMeasurement({record,section:"trunk",mode:"dynamic",measurement:"Flexión / extensión",calculated:dyn,criterionResult:criterion,manualKey:key}));
+        }
+    }
+
+    // TRONCO DINÁMICO - inclinación lateral
+    {
+        const s=getSeriesFromRecord(record,"trunk_lateral_signed");
+        if(s.length){
+            const dyn=analyzeDynamicSeries(s,v=>v>=-10&&v<=10,v=>v<-10||v>10);
+            const criterion=PMFCriteria.dynamic.trunkLateral({
+                angle:dyn.extremeAngle,
+                frequencyPerMinute:dyn.frequencyPerMinute,
+                criticalTimePercent:dyn.criticalPercent
+            });
+            out.push(classifyMeasurement({record,section:"trunk",mode:"dynamic",measurement:"Inclinación lateral",calculated:dyn,criterionResult:criterion}));
+        }
+    }
+
+    // TRONCO DINÁMICO - rotación axial
+    {
+        const s=getSeriesFromRecord(record,"trunk_axial_rotation_signed");
+        if(s.length){
+            const dyn=analyzeDynamicSeries(s,v=>v>=-10&&v<=10,v=>v<-10||v>10);
+            const criterion=PMFCriteria.dynamic.trunkRotation({
+                angle:dyn.extremeAngle,
+                frequencyPerMinute:dyn.frequencyPerMinute,
+                criticalTimePercent:dyn.criticalPercent
+            });
+            out.push(classifyMeasurement({record,section:"trunk",mode:"dynamic",measurement:"Rotación axial",calculated:dyn,criterionResult:criterion}));
+        }
+    }
+
+    // CABEZA/CUELLO DINÁMICO
+    {
+        const defs=[
+            ["head_flexion_signed","Flexión / extensión de cabeza",v=>v>=-40&&v<=0,v=>v>0||v<-40,PMFCriteria.dynamic.headFlexion],
+            ["head_lateral_signed","Lateralización de cabeza",v=>v>=-10&&v<=10,v=>v<-10||v>10,PMFCriteria.dynamic.headLateral],
+            ["head_axial_rotation_signed","Rotación axial de cabeza",v=>v>=-45&&v<=45,v=>v<-45||v>45,PMFCriteria.dynamic.headRotation]
+        ];
+        defs.forEach(([name,label,neutral,target,fn])=>{
+            const s=getSeriesFromRecord(record,name);
+            if(!s.length) return;
+            const dyn=analyzeDynamicSeries(s,neutral,target);
+            const criterion=fn({angle:dyn.extremeAngle,frequencyPerMinute:dyn.frequencyPerMinute,criticalTimePercent:dyn.criticalPercent});
+            out.push(classifyMeasurement({record,section:"head_neck",mode:"dynamic",measurement:label,calculated:dyn,criterionResult:criterion}));
+        });
+    }
+
+    // TRONCO ESTÁTICO: se evalúan episodios >4 s.
+    {
+        const s=getSeriesFromRecord(record,"trunk_flexion_signed");
+        if(s.length){
+            const staticData=analyzeStaticSeries(s,v=>v<0||v>20);
+            if(staticData.episodes.length){
+                const angle=staticData.worstEpisode?.averageAngle ?? null;
+                const key=`v${record.videoNumber}.static.trunk.fullSupport`;
+                const criterion=PMFCriteria.static.trunk({
+                    motion:"flexion",
+                    angle,
+                    fullTrunkSupport:manualValue(key),
+                    durationCriterionResult:pmfProject.analysis?.manualConfirmations?.[`v${record.videoNumber}.static.trunk.durationCriterion`]?.value ?? null
+                });
+                out.push(classifyMeasurement({record,section:"trunk",mode:"static",measurement:"Flexión / extensión",calculated:staticData,criterionResult:criterion,manualKey:key}));
+            }
+        }
+    }
+    {
+        const defs=[
+            ["trunk_lateral_signed","Inclinación lateral","lateral",v=>v<-10||v>10],
+            ["trunk_axial_rotation_signed","Rotación axial","rotation",v=>v<-10||v>10]
+        ];
+        defs.forEach(([name,label,motion,pred])=>{
+            const s=getSeriesFromRecord(record,name);
+            if(!s.length) return;
+            const st=analyzeStaticSeries(s,pred);
+            if(!st.episodes.length) return;
+            const criterion=PMFCriteria.static.trunk({motion,angle:st.worstEpisode?.averageAngle});
+            out.push(classifyMeasurement({record,section:"trunk",mode:"static",measurement:label,calculated:st,criterionResult:criterion}));
+        });
+    }
+
+    // CABEZA/CUELLO ESTÁTICO
+    {
+        const defs=[
+            ["head_lateral_signed","Lateralización de cabeza","lateral",v=>v<-10||v>10],
+            ["head_axial_rotation_signed","Rotación axial de cabeza","rotation",v=>v<-45||v>45]
+        ];
+        defs.forEach(([name,label,motion,pred])=>{
+            const s=getSeriesFromRecord(record,name);
+            if(!s.length) return;
+            const st=analyzeStaticSeries(s,pred);
+            if(!st.episodes.length) return;
+            const criterion=PMFCriteria.static.head({motion,angle:st.worstEpisode?.averageAngle});
+            out.push(classifyMeasurement({record,section:"head_neck",mode:"static",measurement:label,calculated:st,criterionResult:criterion}));
+        });
+    }
+
+    return out;
+}
+
+function classifyPMFSections(records) {
+    const sections = {
+        trunk:{label:"Tronco",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]},
+        head_neck:{label:"Cabeza / cuello",status:PMFCriteria.RESULT.NOT_EVALUATED,results:[],traceability:[]},
+        lower_right:{label:"Extremidad inferior derecha",status:PMFCriteria.RESULT.NEEDS_CONFIRMATION,results:[],traceability:[]},
+        lower_left:{label:"Extremidad inferior izquierda",status:PMFCriteria.RESULT.NEEDS_CONFIRMATION,results:[],traceability:[]}
+    };
+
+    const all=[];
+    records.forEach(record => all.push(...classifyRecord(record)));
+
+    for(const result of all){
+        if(!sections[result.section]) continue;
+        sections[result.section].results.push(result);
+        sections[result.section].traceability.push(result.traceability);
+    }
+
+    ["trunk","head_neck"].forEach(key=>{
+        const results=sections[key].results;
+        const worst=PMFEngine.worstStatus(results.map(r=>({status:r.status,reason:r.reason,criterionId:r.criterionId})));
+        sections[key].status=worst?.status || PMFCriteria.RESULT.NOT_EVALUATED;
+    });
+
+    // Extremidades inferiores: se conservan derecha/izquierda.
+    // La clasificación completa se activará cuando se confirme postura sentado/de pie
+    // y la convención angular de rodilla/tobillo respecto al documento.
+    ["lower_right","lower_left"].forEach(key=>{
+        sections[key].reason="Pendiente de confirmación de postura de referencia (sentado/de pie) para aplicar el criterio de rodilla/tobillo sin inferencias.";
+    });
+
+    return sections;
+}
+
 function buildBodySectionOverview(records) {
     const sections = {
         trunk: {label:"Tronco", status:"PENDIENTE_CLASIFICACION", measurements:[]},
@@ -375,10 +592,19 @@ function renderAnalysisResults() {
 
     const sections = pmfProject.analysis?.bodySections || {};
     const rows = Object.values(sections).map(section => {
-        const details = (section.measurements || []).map(m =>
-            `V${m.videoNumber} · ${escapeHtml(m.name)}: min ${formatDeg(m.min)}, máx ${formatDeg(m.max)}, media ${formatDeg(m.mean)}`
-        ).join("<br>");
-        return `<tr><td><strong>${escapeHtml(section.label)}</strong></td><td>${escapeHtml(section.status)}</td><td>${details || "Sin datos suficientes"}</td></tr>`;
+        const details = (section.results || []).map(r => {
+            const f = Number(r.calculated?.frequencyPerMinute);
+            const cp = Number(r.calculated?.criticalPercent);
+            const staticSec = Number(r.calculated?.totalStaticSeconds);
+            const metrics = [
+                Number.isFinite(f) ? `frecuencia ${f.toFixed(2)} mov/min` : null,
+                Number.isFinite(cp) ? `tiempo crítico ${cp.toFixed(1)}%` : null,
+                Number.isFinite(staticSec) ? `estática acumulada ${staticSec.toFixed(2)} s` : null
+            ].filter(Boolean).join(" · ");
+            return `<div class="pmf-result-line"><strong>V${r.videoNumber} · ${escapeHtml(r.mode)} · ${escapeHtml(r.measurement)}:</strong> ${escapeHtml(r.status)}<br><span>${escapeHtml(r.reason)}</span>${metrics ? `<br><small>${escapeHtml(metrics)}</small>` : ""}</div>`;
+        }).join("");
+        const reason = section.reason ? `<div class="pmf-result-line">${escapeHtml(section.reason)}</div>` : "";
+        return `<tr><td><strong>${escapeHtml(section.label)}</strong></td><td><strong>${escapeHtml(section.status)}</strong></td><td>${details || reason || "Sin datos suficientes"}</td></tr>`;
     }).join("");
 
     container.innerHTML = `
@@ -388,7 +614,7 @@ function renderAnalysisResults() {
                 <tbody>${rows || '<tr><td colspan="3">Pendiente de análisis.</td></tr>'}</tbody>
             </table>
         </div>
-        <p class="pmf-note">En esta fase ya se calculan y conservan las variables biomecánicas signadas. La clasificación ergonómica se aplicará en la siguiente capa, utilizando estos datos y solicitando confirmación manual cuando el criterio no pueda inferirse automáticamente.</p>
+        <p class="pmf-note">El resultado de cada sección se obtiene de la situación más desfavorable de las mediciones y vídeos disponibles. No se calcula ningún resultado global. Los casos que dependen de una condición observacional no inferible automáticamente quedan como “REQUIERE_CONFIRMACION”.</p>
     `;
 }
 
